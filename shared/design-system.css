@@ -1,0 +1,883 @@
+/**
+ * ============================================================
+ * DESIGN SYSTEM
+ * Interactive Data Visualizations
+ * ============================================================
+ *
+ * A comprehensive design system inspired by ShadCN/Tailwind
+ * with tonal color scales, typography hierarchy, and
+ * dark/light theme support.
+ *
+ * Usage: @import '../shared/design-system.css';
+ * ============================================================
+ */
+
+/* ============================================================
+   FONTS
+   ============================================================
+   Display: Cormorant Garamond — elegant serif for headlines
+   Body: Outfit — modern geometric sans-serif
+
+   NOTE: Fonts should be loaded via <link> tags in HTML for
+   better performance. Add this to your HTML <head>:
+
+   <link rel="preconnect" href="https://fonts.googleapis.com">
+   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,500&family=Outfit:wght@100;200;300;400;500;600;700;800&display=swap" rel="stylesheet">
+   ============================================================ */
+
+/* ============================================================
+   CSS CUSTOM PROPERTIES
+   ============================================================ */
+:root {
+  /* Font Families */
+  --font-display: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+  --font-body: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+
+  /* Typography Scale (using major third ratio ~1.25) */
+  --text-xs: 0.75rem;      /* 12px */
+  --text-sm: 0.875rem;     /* 14px */
+  --text-base: 1rem;       /* 16px */
+  --text-lg: 1.125rem;     /* 18px */
+  --text-xl: 1.25rem;      /* 20px */
+  --text-2xl: 1.5rem;      /* 24px */
+  --text-3xl: 1.875rem;    /* 30px */
+  --text-4xl: 2.25rem;     /* 36px */
+  --text-5xl: 3rem;        /* 48px */
+  --text-6xl: 3.75rem;     /* 60px */
+
+  /* Line Heights */
+  --leading-none: 1;
+  --leading-tight: 1.15;
+  --leading-snug: 1.375;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.625;
+  --leading-loose: 2;
+
+  /* Letter Spacing */
+  --tracking-tighter: -0.05em;
+  --tracking-tight: -0.025em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.025em;
+  --tracking-wider: 0.05em;
+  --tracking-widest: 0.1em;
+  --tracking-caps: 0.12em;
+
+  /* Font Weights */
+  --font-thin: 100;
+  --font-extralight: 200;
+  --font-light: 300;
+  --font-normal: 400;
+  --font-medium: 500;
+  --font-semibold: 600;
+  --font-bold: 700;
+  --font-extrabold: 800;
+
+  /* Spacing Scale */
+  --space-0: 0;
+  --space-px: 1px;
+  --space-0-5: 0.125rem;
+  --space-1: 0.25rem;
+  --space-1-5: 0.375rem;
+  --space-2: 0.5rem;
+  --space-2-5: 0.625rem;
+  --space-3: 0.75rem;
+  --space-3-5: 0.875rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-7: 1.75rem;
+  --space-8: 2rem;
+  --space-9: 2.25rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-14: 3.5rem;
+  --space-16: 4rem;
+  --space-20: 5rem;
+  --space-24: 6rem;
+
+  /* Border Radius */
+  --radius-none: 0;
+  --radius-sm: 2px;
+  --radius-default: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-3xl: 24px;
+  --radius-full: 9999px;
+
+  /* Shadows */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+
+  /* Transitions */
+  --duration-75: 75ms;
+  --duration-100: 100ms;
+  --duration-150: 150ms;
+  --duration-200: 200ms;
+  --duration-300: 300ms;
+  --duration-500: 500ms;
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ============================================================
+   COLOR PALETTE — DARK THEME (Default)
+   ============================================================
+   Using a warm neutral base with three semantic accent colors:
+   - Primary (Cyan): AI, Technology, Observable
+   - Secondary (Emerald): Human, Organic, Natural
+   - Tertiary (Amber): Warning, Unobservable, Attention
+   ============================================================ */
+:root,
+[data-theme="dark"] {
+  /* Neutral Scale — Warm Slate */
+  --neutral-50: #f8f7f4;
+  --neutral-100: #f0ede8;
+  --neutral-200: #e2ddd4;
+  --neutral-300: #cec6b8;
+  --neutral-400: #a8a094;
+  --neutral-500: #8a8478;
+  --neutral-600: #6b665c;
+  --neutral-700: #4d4a44;
+  --neutral-800: #302e2a;
+  --neutral-900: #1c1b18;
+  --neutral-950: #0f0e0d;
+
+  /* Primary Scale — Cyan (AI/Technology) */
+  --primary-50: #ecfeff;
+  --primary-100: #cffafe;
+  --primary-200: #a5f3fc;
+  --primary-300: #67e8f9;
+  --primary-400: #22d3ee;
+  --primary-500: #06b6d4;
+  --primary-600: #0891b2;
+  --primary-700: #0e7490;
+  --primary-800: #155e75;
+  --primary-900: #164e63;
+  --primary-950: #083344;
+
+  /* Secondary Scale — Emerald (Human/Organic) */
+  --secondary-50: #ecfdf5;
+  --secondary-100: #d1fae5;
+  --secondary-200: #a7f3d0;
+  --secondary-300: #6ee7b7;
+  --secondary-400: #34d399;
+  --secondary-500: #10b981;
+  --secondary-600: #059669;
+  --secondary-700: #047857;
+  --secondary-800: #065f46;
+  --secondary-900: #064e3b;
+  --secondary-950: #022c22;
+
+  /* Tertiary Scale — Amber (Unobservable/Warning) */
+  --tertiary-50: #fffbeb;
+  --tertiary-100: #fef3c7;
+  --tertiary-200: #fde68a;
+  --tertiary-300: #fcd34d;
+  --tertiary-400: #fbbf24;
+  --tertiary-500: #f59e0b;
+  --tertiary-600: #d97706;
+  --tertiary-700: #b45309;
+  --tertiary-800: #92400e;
+  --tertiary-900: #78350f;
+  --tertiary-950: #451a03;
+
+  /* Semantic Colors — Dark Theme */
+  --background: var(--neutral-950);
+  --background-elevated: var(--neutral-900);
+  --background-surface: var(--neutral-800);
+  --background-muted: var(--neutral-700);
+
+  --foreground: var(--neutral-100);
+  --foreground-muted: var(--neutral-400);
+  --foreground-subtle: var(--neutral-500);
+
+  --border: rgba(240, 237, 232, 0.08);
+  --border-strong: rgba(240, 237, 232, 0.15);
+  --ring: var(--primary-500);
+
+  /* Accent Aliases */
+  --accent-ai: var(--primary-400);
+  --accent-ai-muted: var(--primary-600);
+  --accent-ai-glow: rgba(34, 211, 238, 0.35);
+
+  --accent-human: var(--secondary-400);
+  --accent-human-muted: var(--secondary-600);
+  --accent-human-glow: rgba(52, 211, 153, 0.35);
+
+  --accent-unobservable: var(--tertiary-400);
+  --accent-unobservable-muted: var(--tertiary-600);
+  --accent-unobservable-glow: rgba(251, 191, 36, 0.35);
+
+  /* Canvas-specific (visualization backgrounds) */
+  --canvas-bg: var(--neutral-950);
+  --canvas-cone-start: rgba(254, 243, 199, 0.18);
+  --canvas-cone-mid: rgba(254, 243, 199, 0.07);
+  --canvas-cone-end: rgba(254, 243, 199, 0.02);
+  --canvas-ground-top: var(--neutral-900);
+  --canvas-ground-bottom: var(--neutral-950);
+
+  /* UI Elements */
+  --toggle-bg: rgba(255, 255, 255, 0.04);
+  --toggle-bg-hover: rgba(255, 255, 255, 0.08);
+  --toggle-active: rgba(255, 255, 255, 0.12);
+}
+
+/* ============================================================
+   COLOR PALETTE — LIGHT THEME
+   ============================================================ */
+[data-theme="light"] {
+  /* Semantic Colors — Light Theme */
+  --background: var(--neutral-50);
+  --background-elevated: #ffffff;
+  --background-surface: var(--neutral-100);
+  --background-muted: var(--neutral-200);
+
+  --foreground: var(--neutral-900);
+  --foreground-muted: var(--neutral-600);
+  --foreground-subtle: var(--neutral-500);
+
+  --border: rgba(0, 0, 0, 0.08);
+  --border-strong: rgba(0, 0, 0, 0.15);
+  --ring: var(--primary-600);
+
+  /* Accent Aliases — Darker for light bg */
+  --accent-ai: var(--primary-600);
+  --accent-ai-muted: var(--primary-400);
+  --accent-ai-glow: rgba(8, 145, 178, 0.25);
+
+  --accent-human: var(--secondary-600);
+  --accent-human-muted: var(--secondary-400);
+  --accent-human-glow: rgba(5, 150, 105, 0.25);
+
+  --accent-unobservable: var(--tertiary-600);
+  --accent-unobservable-muted: var(--tertiary-400);
+  --accent-unobservable-glow: rgba(217, 119, 6, 0.25);
+
+  /* Canvas-specific */
+  --canvas-bg: var(--neutral-100);
+  --canvas-cone-start: rgba(251, 191, 36, 0.25);
+  --canvas-cone-mid: rgba(251, 191, 36, 0.10);
+  --canvas-cone-end: rgba(251, 191, 36, 0.03);
+  --canvas-ground-top: var(--neutral-200);
+  --canvas-ground-bottom: var(--neutral-100);
+
+  /* UI Elements */
+  --toggle-bg: rgba(0, 0, 0, 0.04);
+  --toggle-bg-hover: rgba(0, 0, 0, 0.08);
+  --toggle-active: rgba(0, 0, 0, 0.12);
+}
+
+/* ============================================================
+   SYSTEM THEME SUPPORT
+   ============================================================ */
+@media (prefers-color-scheme: light) {
+  [data-theme="system"] {
+    --background: var(--neutral-50);
+    --background-elevated: #ffffff;
+    --background-surface: var(--neutral-100);
+    --background-muted: var(--neutral-200);
+    --foreground: var(--neutral-900);
+    --foreground-muted: var(--neutral-600);
+    --foreground-subtle: var(--neutral-500);
+    --border: rgba(0, 0, 0, 0.08);
+    --border-strong: rgba(0, 0, 0, 0.15);
+    --ring: var(--primary-600);
+    --accent-ai: var(--primary-600);
+    --accent-ai-muted: var(--primary-400);
+    --accent-ai-glow: rgba(8, 145, 178, 0.25);
+    --accent-human: var(--secondary-600);
+    --accent-human-muted: var(--secondary-400);
+    --accent-human-glow: rgba(5, 150, 105, 0.25);
+    --accent-unobservable: var(--tertiary-600);
+    --accent-unobservable-muted: var(--tertiary-400);
+    --accent-unobservable-glow: rgba(217, 119, 6, 0.25);
+    --canvas-bg: var(--neutral-100);
+    --canvas-cone-start: rgba(251, 191, 36, 0.25);
+    --canvas-cone-mid: rgba(251, 191, 36, 0.10);
+    --canvas-cone-end: rgba(251, 191, 36, 0.03);
+    --canvas-ground-top: var(--neutral-200);
+    --canvas-ground-bottom: var(--neutral-100);
+    --toggle-bg: rgba(0, 0, 0, 0.04);
+    --toggle-bg-hover: rgba(0, 0, 0, 0.08);
+    --toggle-active: rgba(0, 0, 0, 0.12);
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  [data-theme="system"] {
+    --background: var(--neutral-950);
+    --background-elevated: var(--neutral-900);
+    --background-surface: var(--neutral-800);
+    --background-muted: var(--neutral-700);
+    --foreground: var(--neutral-100);
+    --foreground-muted: var(--neutral-400);
+    --foreground-subtle: var(--neutral-500);
+    --border: rgba(240, 237, 232, 0.08);
+    --border-strong: rgba(240, 237, 232, 0.15);
+    --ring: var(--primary-500);
+    --accent-ai: var(--primary-400);
+    --accent-ai-muted: var(--primary-600);
+    --accent-ai-glow: rgba(34, 211, 238, 0.35);
+    --accent-human: var(--secondary-400);
+    --accent-human-muted: var(--secondary-600);
+    --accent-human-glow: rgba(52, 211, 153, 0.35);
+    --accent-unobservable: var(--tertiary-400);
+    --accent-unobservable-muted: var(--tertiary-600);
+    --accent-unobservable-glow: rgba(251, 191, 36, 0.35);
+    --canvas-bg: var(--neutral-950);
+    --canvas-cone-start: rgba(254, 243, 199, 0.18);
+    --canvas-cone-mid: rgba(254, 243, 199, 0.07);
+    --canvas-cone-end: rgba(254, 243, 199, 0.02);
+    --canvas-ground-top: var(--neutral-900);
+    --canvas-ground-bottom: var(--neutral-950);
+    --toggle-bg: rgba(255, 255, 255, 0.04);
+    --toggle-bg-hover: rgba(255, 255, 255, 0.08);
+    --toggle-active: rgba(255, 255, 255, 0.12);
+  }
+}
+
+/* ============================================================
+   BASE RESET
+   ============================================================ */
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  font-weight: var(--font-normal);
+  line-height: var(--leading-normal);
+  color: var(--foreground);
+  background: var(--background);
+}
+
+/* ============================================================
+   TYPOGRAPHY
+   ============================================================ */
+
+/* Display Headings — Cormorant Garamond */
+h1, .h1 {
+  font-family: var(--font-display);
+  font-size: var(--text-5xl);
+  font-weight: var(--font-normal);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+  color: var(--foreground);
+}
+
+h2, .h2 {
+  font-family: var(--font-display);
+  font-size: var(--text-4xl);
+  font-weight: var(--font-normal);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+  color: var(--foreground);
+}
+
+h3, .h3 {
+  font-family: var(--font-display);
+  font-size: var(--text-3xl);
+  font-weight: var(--font-medium);
+  line-height: var(--leading-snug);
+  letter-spacing: var(--tracking-normal);
+  color: var(--foreground);
+}
+
+h4, .h4 {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: var(--font-medium);
+  line-height: var(--leading-snug);
+  letter-spacing: var(--tracking-normal);
+  color: var(--foreground);
+}
+
+h5, .h5 {
+  font-family: var(--font-body);
+  font-size: var(--text-xl);
+  font-weight: var(--font-semibold);
+  line-height: var(--leading-snug);
+  letter-spacing: var(--tracking-normal);
+  color: var(--foreground);
+}
+
+h6, .h6 {
+  font-family: var(--font-body);
+  font-size: var(--text-lg);
+  font-weight: var(--font-semibold);
+  line-height: var(--leading-normal);
+  letter-spacing: var(--tracking-normal);
+  color: var(--foreground);
+}
+
+/* Body Text */
+p, .body {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  font-weight: var(--font-normal);
+  line-height: var(--leading-relaxed);
+  color: var(--foreground);
+}
+
+.body-lg {
+  font-size: var(--text-lg);
+  line-height: var(--leading-relaxed);
+}
+
+.body-sm {
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+}
+
+/* Supporting Text */
+.caption {
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+  line-height: var(--leading-normal);
+  color: var(--foreground-muted);
+}
+
+.overline {
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-weight: var(--font-semibold);
+  line-height: var(--leading-normal);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--foreground-subtle);
+}
+
+.label {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  line-height: var(--leading-normal);
+  color: var(--foreground);
+}
+
+/* Quote/Pullquote */
+blockquote, .blockquote {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: var(--font-normal);
+  font-style: italic;
+  line-height: var(--leading-relaxed);
+  color: var(--foreground-muted);
+}
+
+cite {
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-style: normal;
+  font-weight: var(--font-medium);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--foreground-subtle);
+}
+
+/* Muted Variants */
+.text-muted {
+  color: var(--foreground-muted);
+}
+
+.text-subtle {
+  color: var(--foreground-subtle);
+}
+
+/* Accent Colors */
+.text-primary {
+  color: var(--accent-ai);
+}
+
+.text-secondary {
+  color: var(--accent-human);
+}
+
+.text-tertiary {
+  color: var(--accent-unobservable);
+}
+
+/* ============================================================
+   LINKS
+   ============================================================ */
+a {
+  color: var(--accent-ai);
+  text-decoration: none;
+  transition: color var(--duration-150) var(--ease-out);
+}
+
+a:hover {
+  color: var(--primary-300);
+}
+
+a:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* ============================================================
+   BUTTONS
+   ============================================================ */
+button, .btn {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  line-height: var(--leading-none);
+  border: none;
+  cursor: pointer;
+  transition: all var(--duration-150) var(--ease-out);
+}
+
+button:focus-visible, .btn:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* ============================================================
+   CARD COMPONENT
+   ============================================================ */
+.card {
+  background: var(--background-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-default);
+  overflow: hidden;
+  box-shadow: var(--shadow-lg);
+}
+
+.card-header {
+  padding: var(--space-8) var(--space-10) var(--space-6);
+  border-bottom: 1px solid var(--border);
+}
+
+.card-body {
+  position: relative;
+}
+
+.card-footer {
+  padding: var(--space-4) var(--space-10);
+  border-top: 1px solid var(--border);
+}
+
+/* ============================================================
+   THEME TOGGLE COMPONENT
+   ============================================================ */
+.theme-toggle {
+  position: fixed;
+  top: var(--space-6);
+  right: var(--space-6);
+  display: flex;
+  background: var(--toggle-bg);
+  border-radius: var(--radius-full);
+  padding: var(--space-1);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(8px);
+  z-index: 100;
+}
+
+.theme-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  color: var(--foreground-subtle);
+  transition: all var(--duration-200) var(--ease-out);
+}
+
+.theme-toggle-btn:hover {
+  color: var(--foreground-muted);
+  background: var(--toggle-bg-hover);
+}
+
+.theme-toggle-btn.active {
+  background: var(--toggle-active);
+  color: var(--foreground);
+}
+
+.theme-toggle-btn i {
+  font-size: 18px;
+}
+
+/* ============================================================
+   PANEL/TOOLTIP COMPONENT
+   ============================================================ */
+.panel {
+  position: absolute;
+  background: var(--background-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-default);
+  box-shadow: var(--shadow-xl);
+  z-index: 10;
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding-bottom: var(--space-3);
+  margin-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.panel-title {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: var(--font-semibold);
+}
+
+.panel-close {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--foreground-subtle);
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-default);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  transition: all var(--duration-150) var(--ease-out);
+}
+
+.panel-close:hover {
+  border-color: var(--foreground-muted);
+  color: var(--foreground);
+}
+
+.panel-content {
+  font-size: var(--text-sm);
+  font-weight: var(--font-light);
+  line-height: var(--leading-relaxed);
+  color: var(--foreground-muted);
+}
+
+/* ============================================================
+   LEGEND COMPONENT
+   ============================================================ */
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-6);
+  list-style: none;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+
+.legend-dot--primary {
+  background: var(--accent-ai);
+  box-shadow: 0 0 10px var(--accent-ai-glow);
+}
+
+.legend-dot--secondary {
+  background: var(--accent-human);
+  box-shadow: 0 0 10px var(--accent-human-glow);
+}
+
+.legend-dot--tertiary {
+  background: var(--accent-unobservable);
+  box-shadow: 0 0 10px var(--accent-unobservable-glow);
+}
+
+.legend-label {
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+  color: var(--foreground-muted);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+}
+
+/* ============================================================
+   CANVAS CONTAINER
+   ============================================================ */
+.canvas-container {
+  position: relative;
+  background: var(--canvas-bg);
+}
+
+.canvas-container canvas {
+  display: block;
+  width: 100%;
+}
+
+/* ============================================================
+   UTILITY CLASSES
+   ============================================================ */
+
+/* Display */
+.hidden { display: none; }
+.block { display: block; }
+.inline { display: inline; }
+.inline-block { display: inline-block; }
+.flex { display: flex; }
+.inline-flex { display: inline-flex; }
+.grid { display: grid; }
+
+/* Flex Utilities */
+.flex-row { flex-direction: row; }
+.flex-col { flex-direction: column; }
+.flex-wrap { flex-wrap: wrap; }
+.items-start { align-items: flex-start; }
+.items-center { align-items: center; }
+.items-end { align-items: flex-end; }
+.justify-start { justify-content: flex-start; }
+.justify-center { justify-content: center; }
+.justify-end { justify-content: flex-end; }
+.justify-between { justify-content: space-between; }
+.gap-1 { gap: var(--space-1); }
+.gap-2 { gap: var(--space-2); }
+.gap-3 { gap: var(--space-3); }
+.gap-4 { gap: var(--space-4); }
+.gap-6 { gap: var(--space-6); }
+.gap-8 { gap: var(--space-8); }
+
+/* Text Alignment */
+.text-left { text-align: left; }
+.text-center { text-align: center; }
+.text-right { text-align: right; }
+
+/* Visibility & Transitions */
+.visible { visibility: visible; opacity: 1; }
+.invisible { visibility: hidden; opacity: 0; }
+.transition { transition: all var(--duration-200) var(--ease-out); }
+.transition-opacity { transition: opacity var(--duration-200) var(--ease-out); }
+.transition-transform { transition: transform var(--duration-200) var(--ease-out); }
+
+/* Position */
+.relative { position: relative; }
+.absolute { position: absolute; }
+.fixed { position: fixed; }
+
+/* Overflow */
+.overflow-hidden { overflow: hidden; }
+.overflow-auto { overflow: auto; }
+
+/* Width/Height */
+.w-full { width: 100%; }
+.h-full { height: 100%; }
+.min-h-screen { min-height: 100vh; }
+
+/* ============================================================
+   ANIMATION UTILITIES
+   ============================================================ */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn var(--duration-300) var(--ease-out);
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp var(--duration-300) var(--ease-out);
+}
+
+.animate-fade-in-down {
+  animation: fadeInDown var(--duration-300) var(--ease-out);
+}
+
+/* ============================================================
+   REDUCED MOTION
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ============================================================
+   RESPONSIVE BREAKPOINTS
+   ============================================================ */
+/* sm: 640px, md: 768px, lg: 1024px, xl: 1280px, 2xl: 1536px */
+
+@media (max-width: 768px) {
+  :root {
+    --text-5xl: 2.5rem;
+    --text-4xl: 2rem;
+    --text-3xl: 1.5rem;
+  }
+
+  .theme-toggle {
+    top: var(--space-4);
+    right: var(--space-4);
+  }
+
+  .theme-toggle-btn {
+    width: 32px;
+    height: 32px;
+  }
+
+  .theme-toggle-btn i {
+    font-size: 16px;
+  }
+
+  .card-header {
+    padding: var(--space-6) var(--space-6) var(--space-4);
+  }
+
+  .card-footer {
+    padding: var(--space-4) var(--space-6);
+  }
+}
