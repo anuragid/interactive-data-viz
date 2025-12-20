@@ -11,7 +11,31 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,400;1,9..144,500&display=swap" rel="stylesheet">
 
+
   <style>
+    /* ============================================================
+       REGISTER CSS PROPERTIES FOR ANIMATION
+       ============================================================ */
+    @property --blob1-x { syntax: '<percentage>'; inherits: false; initial-value: 30%; }
+    @property --blob1-y { syntax: '<percentage>'; inherits: false; initial-value: 70%; }
+    @property --blob2-x { syntax: '<percentage>'; inherits: false; initial-value: 70%; }
+    @property --blob2-y { syntax: '<percentage>'; inherits: false; initial-value: 30%; }
+    @property --blob3-x { syntax: '<percentage>'; inherits: false; initial-value: 50%; }
+    @property --blob3-y { syntax: '<percentage>'; inherits: false; initial-value: 50%; }
+    @property --blob-x { syntax: '<percentage>'; inherits: false; initial-value: 50%; }
+    @property --blob-y { syntax: '<percentage>'; inherits: false; initial-value: 70%; }
+    @property --light-w { syntax: '<percentage>'; inherits: false; initial-value: 45%; }
+    @property --light-h { syntax: '<percentage>'; inherits: false; initial-value: 85%; }
+    @property --light-opacity { syntax: '<number>'; inherits: false; initial-value: 0.55; }
+    @property --glow-x { syntax: '<percentage>'; inherits: false; initial-value: 50%; }
+    @property --seam-offset { syntax: '<length>'; inherits: false; initial-value: 0px; }
+    @property --layer1-pos { syntax: '<percentage>'; inherits: false; initial-value: 0%; }
+    @property --layer2-pos { syntax: '<percentage>'; inherits: false; initial-value: 15%; }
+    @property --layer3-pos { syntax: '<percentage>'; inherits: false; initial-value: 30%; }
+    @property --layer1-opacity { syntax: '<number>'; inherits: false; initial-value: 0.18; }
+    @property --layer2-opacity { syntax: '<number>'; inherits: false; initial-value: 0.12; }
+    @property --layer3-opacity { syntax: '<number>'; inherits: false; initial-value: 0.08; }
+
     /* ============================================================
        CSS VARIABLES
        ============================================================ */
@@ -97,17 +121,39 @@
       height: 100%;
     }
 
-    /* Gradient overlay for depth - enhanced opacity */
+    /* Gradient overlay for depth - enhanced opacity with warm undertones */
     .atmosphere {
       position: fixed;
       inset: 0;
       z-index: 1;
       pointer-events: none;
       background:
-        radial-gradient(ellipse 100% 60% at 50% 0%, rgba(251, 191, 36, 0.035) 0%, transparent 50%),
-        radial-gradient(ellipse 80% 50% at 20% 90%, rgba(34, 211, 238, 0.025) 0%, transparent 40%),
-        radial-gradient(ellipse 70% 40% at 85% 70%, rgba(139, 92, 246, 0.02) 0%, transparent 40%),
-        radial-gradient(ellipse 60% 30% at 10% 30%, rgba(52, 211, 153, 0.02) 0%, transparent 40%);
+        radial-gradient(ellipse 120% 70% at 50% 0%, rgba(251, 191, 36, 0.08) 0%, transparent 55%),
+        radial-gradient(ellipse 140% 50% at 50% 100%, rgba(251, 191, 36, 0.04) 0%, transparent 40%),
+        radial-gradient(ellipse 90% 60% at 15% 85%, rgba(34, 211, 238, 0.05) 0%, transparent 45%),
+        radial-gradient(ellipse 80% 50% at 90% 65%, rgba(139, 92, 246, 0.045) 0%, transparent 45%),
+        radial-gradient(ellipse 70% 40% at 5% 25%, rgba(52, 211, 153, 0.04) 0%, transparent 45%);
+    }
+
+    /* Depth fog at bottom for infinite scroll feeling */
+    .depth-fog {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 200px;
+      z-index: 3;
+      pointer-events: none;
+      background: linear-gradient(to top,
+        rgba(5, 5, 7, 0.9) 0%,
+        rgba(5, 5, 7, 0.5) 40%,
+        transparent 100%);
+      opacity: 0;
+      transition: opacity 0.5s ease;
+    }
+
+    .depth-fog.visible {
+      opacity: 1;
     }
 
     /* Mouse-follow ambient glow */
@@ -242,23 +288,62 @@
       align-items: center;
       gap: var(--space-sm);
       color: var(--color-text-dim);
-      font-size: 0.65rem;
+      font-size: 0.6rem;
       letter-spacing: 0.15em;
       text-transform: uppercase;
       opacity: 0;
       animation: fadeIn 1s var(--ease-out-expo) 1.5s forwards;
+      cursor: pointer;
+      transition: color 0.3s ease;
     }
 
-    .hero__scroll-line {
-      width: 1px;
-      height: 40px;
-      background: linear-gradient(to bottom, var(--color-text-dim), transparent);
-      animation: scrollPulse 2s ease-in-out infinite;
+    .hero__scroll:hover {
+      color: var(--color-text-muted);
     }
 
-    @keyframes scrollPulse {
-      0%, 100% { opacity: 0.3; transform: scaleY(1); }
-      50% { opacity: 0.6; transform: scaleY(1.15); }
+    .hero__scroll:hover .hero__scroll-mouse {
+      border-color: var(--color-text-muted);
+    }
+
+    .hero__scroll-mouse {
+      width: 22px;
+      height: 36px;
+      border: 1.5px solid var(--color-text-dim);
+      border-radius: 11px;
+      position: relative;
+      transition: border-color 0.3s ease;
+    }
+
+    .hero__scroll-wheel {
+      position: absolute;
+      left: 50%;
+      top: 8px;
+      width: 3px;
+      height: 6px;
+      background: var(--color-text-dim);
+      border-radius: 2px;
+      transform: translateX(-50%);
+      animation: scrollWheel 2s ease-in-out infinite;
+    }
+
+    .hero__scroll:hover .hero__scroll-wheel {
+      background: var(--color-accent-warm);
+    }
+
+    .hero__scroll-text {
+      margin-top: var(--space-xs);
+      color: var(--color-text-dim);
+    }
+
+    @keyframes scrollWheel {
+      0%, 100% {
+        opacity: 1;
+        top: 8px;
+      }
+      50% {
+        opacity: 0.3;
+        top: 18px;
+      }
     }
 
     /* ============================================================
@@ -349,7 +434,7 @@
       font-weight: 500;
       letter-spacing: 0.25em;
       text-transform: uppercase;
-      color: var(--color-accent-warm);
+      color: var(--color-accent-ai);
       margin-bottom: var(--space-md);
     }
 
@@ -392,6 +477,7 @@
       border-radius: 16px;
       overflow: hidden;
       transition: all 0.5s var(--ease-out-expo);
+      cursor: pointer;
       opacity: 0;
       transform: translateY(40px);
     }
@@ -410,7 +496,7 @@
         0 0 0 1px rgba(255, 255, 255, 0.05);
     }
 
-    /* Part preview area - themed gradient */
+    /* Part preview area */
     .part__preview {
       aspect-ratio: 16 / 10;
       position: relative;
@@ -421,51 +507,156 @@
     .part__preview-bg {
       position: absolute;
       inset: 0;
-      opacity: 0.7;
-      transition: opacity 0.5s ease, transform 0.5s ease;
+      opacity: 0.85;
+      transition: opacity 0.5s ease;
     }
 
     .part:hover .part__preview-bg {
       opacity: 1;
-      transform: scale(1.05);
     }
 
-    /* Theme-specific preview backgrounds */
+    /* Theme-specific preview backgrounds with animations */
+
+    /* FRICTION: Warm amber orbs that breathe and drift */
     .part--friction .part__preview-bg {
       background:
-        radial-gradient(circle at 30% 70%, rgba(251, 191, 36, 0.3) 0%, transparent 50%),
-        radial-gradient(circle at 70% 30%, rgba(245, 158, 11, 0.2) 0%, transparent 40%),
+        radial-gradient(circle at var(--blob1-x, 30%) var(--blob1-y, 70%), rgba(251, 191, 36, 0.4) 0%, transparent 45%),
+        radial-gradient(circle at var(--blob2-x, 70%) var(--blob2-y, 30%), rgba(245, 158, 11, 0.3) 0%, transparent 40%),
+        radial-gradient(circle at var(--blob3-x, 50%) var(--blob3-y, 50%), rgba(217, 119, 6, 0.2) 0%, transparent 50%),
         linear-gradient(135deg, var(--color-deep) 0%, #1a1510 100%);
+      animation: friction-flow 12s ease-in-out infinite;
     }
 
+    @keyframes friction-flow {
+      0%, 100% {
+        --blob1-x: 25%; --blob1-y: 65%;
+        --blob2-x: 75%; --blob2-y: 35%;
+        --blob3-x: 50%; --blob3-y: 50%;
+      }
+      33% {
+        --blob1-x: 40%; --blob1-y: 45%;
+        --blob2-x: 60%; --blob2-y: 55%;
+        --blob3-x: 30%; --blob3-y: 70%;
+      }
+      66% {
+        --blob1-x: 60%; --blob1-y: 70%;
+        --blob2-x: 35%; --blob2-y: 40%;
+        --blob3-x: 70%; --blob3-y: 35%;
+      }
+    }
+
+    /* ABSTRACTION: Indigo and cyan that swirl and merge */
     .part--abstraction .part__preview-bg {
       background:
-        radial-gradient(circle at 50% 80%, rgba(99, 102, 241, 0.25) 0%, transparent 50%),
-        radial-gradient(circle at 20% 20%, rgba(34, 211, 238, 0.15) 0%, transparent 40%),
+        radial-gradient(circle at var(--blob1-x, 50%) var(--blob1-y, 80%), rgba(99, 102, 241, 0.35) 0%, transparent 50%),
+        radial-gradient(circle at var(--blob2-x, 20%) var(--blob2-y, 20%), rgba(34, 211, 238, 0.25) 0%, transparent 45%),
+        radial-gradient(circle at var(--blob3-x, 80%) var(--blob3-y, 50%), rgba(79, 70, 229, 0.2) 0%, transparent 40%),
         linear-gradient(135deg, var(--color-deep) 0%, #0f1020 100%);
+      animation: abstraction-flow 14s ease-in-out infinite;
     }
 
+    @keyframes abstraction-flow {
+      0%, 100% {
+        --blob1-x: 45%; --blob1-y: 75%;
+        --blob2-x: 25%; --blob2-y: 25%;
+        --blob3-x: 80%; --blob3-y: 50%;
+      }
+      33% {
+        --blob1-x: 70%; --blob1-y: 60%;
+        --blob2-x: 40%; --blob2-y: 40%;
+        --blob3-x: 55%; --blob3-y: 30%;
+      }
+      66% {
+        --blob1-x: 30%; --blob1-y: 50%;
+        --blob2-x: 65%; --blob2-y: 70%;
+        --blob3-x: 45%; --blob3-y: 55%;
+      }
+    }
+
+    /* STREETLIGHT: Golden light that pulses and flickers subtly */
     .part--streetlight .part__preview-bg {
       background:
-        radial-gradient(ellipse 40% 80% at 50% 0%, rgba(251, 191, 36, 0.5) 0%, transparent 60%),
+        radial-gradient(ellipse var(--light-w, 45%) var(--light-h, 85%) at 50% 0%, rgba(251, 191, 36, var(--light-opacity, 0.55)) 0%, transparent 60%),
+        radial-gradient(ellipse 30% 50% at var(--glow-x, 50%) 20%, rgba(253, 224, 71, 0.15) 0%, transparent 50%),
         radial-gradient(circle at 50% 100%, rgba(0, 0, 0, 0.9) 0%, transparent 70%),
         linear-gradient(180deg, #1a1608 0%, var(--color-void) 100%);
+      animation: streetlight-pulse 8s ease-in-out infinite;
     }
 
+    @keyframes streetlight-pulse {
+      0%, 100% {
+        --light-w: 42%; --light-h: 80%;
+        --light-opacity: 0.5;
+        --glow-x: 48%;
+      }
+      25% {
+        --light-w: 48%; --light-h: 88%;
+        --light-opacity: 0.6;
+        --glow-x: 52%;
+      }
+      50% {
+        --light-w: 44%; --light-h: 82%;
+        --light-opacity: 0.55;
+        --glow-x: 50%;
+      }
+      75% {
+        --light-w: 46%; --light-h: 86%;
+        --light-opacity: 0.58;
+        --glow-x: 46%;
+      }
+    }
+
+    /* SEAMS: Green accents with shifting seam lines */
     .part--seams .part__preview-bg {
       background:
-        repeating-linear-gradient(90deg, transparent 0px, transparent 40px, rgba(52, 211, 153, 0.1) 40px, rgba(52, 211, 153, 0.1) 41px),
-        radial-gradient(circle at 70% 50%, rgba(52, 211, 153, 0.2) 0%, transparent 50%),
+        repeating-linear-gradient(90deg,
+          transparent 0px,
+          transparent calc(40px + var(--seam-offset, 0px)),
+          rgba(52, 211, 153, 0.12) calc(40px + var(--seam-offset, 0px)),
+          rgba(52, 211, 153, 0.12) calc(41px + var(--seam-offset, 0px))),
+        radial-gradient(circle at var(--blob1-x, 70%) var(--blob1-y, 50%), rgba(52, 211, 153, 0.25) 0%, transparent 45%),
+        radial-gradient(circle at var(--blob2-x, 30%) var(--blob2-y, 60%), rgba(34, 197, 94, 0.15) 0%, transparent 40%),
         linear-gradient(135deg, var(--color-deep) 0%, #0a1510 100%);
+      animation: seams-shift 16s ease-in-out infinite;
     }
 
+    @keyframes seams-shift {
+      0%, 100% {
+        --seam-offset: 0px;
+        --blob1-x: 65%; --blob1-y: 45%;
+        --blob2-x: 35%; --blob2-y: 60%;
+      }
+      50% {
+        --seam-offset: 20px;
+        --blob1-x: 40%; --blob1-y: 55%;
+        --blob2-x: 60%; --blob2-y: 40%;
+      }
+    }
+
+    /* PACE: Layered waves that slowly rise and fall */
     .part--pace .part__preview-bg {
       background:
-        linear-gradient(0deg, rgba(139, 92, 246, 0.15) 0%, transparent 20%),
-        linear-gradient(0deg, rgba(99, 102, 241, 0.1) 20%, transparent 40%),
-        linear-gradient(0deg, rgba(34, 211, 238, 0.08) 40%, transparent 60%),
-        linear-gradient(0deg, rgba(52, 211, 153, 0.05) 60%, transparent 80%),
+        linear-gradient(0deg, rgba(139, 92, 246, var(--layer1-opacity, 0.18)) var(--layer1-pos, 0%), transparent calc(var(--layer1-pos, 0%) + 25%)),
+        linear-gradient(0deg, rgba(99, 102, 241, var(--layer2-opacity, 0.12)) var(--layer2-pos, 15%), transparent calc(var(--layer2-pos, 15%) + 25%)),
+        linear-gradient(0deg, rgba(34, 211, 238, var(--layer3-opacity, 0.08)) var(--layer3-pos, 30%), transparent calc(var(--layer3-pos, 30%) + 25%)),
+        radial-gradient(circle at var(--blob-x, 50%) var(--blob-y, 70%), rgba(139, 92, 246, 0.2) 0%, transparent 50%),
         linear-gradient(135deg, var(--color-deep) 0%, #100a18 100%);
+      animation: pace-layers 20s ease-in-out infinite;
+    }
+
+    @keyframes pace-layers {
+      0%, 100% {
+        --layer1-pos: 0%; --layer1-opacity: 0.18;
+        --layer2-pos: 18%; --layer2-opacity: 0.12;
+        --layer3-pos: 35%; --layer3-opacity: 0.08;
+        --blob-x: 45%; --blob-y: 65%;
+      }
+      50% {
+        --layer1-pos: 8%; --layer1-opacity: 0.22;
+        --layer2-pos: 25%; --layer2-opacity: 0.15;
+        --layer3-pos: 42%; --layer3-opacity: 0.1;
+        --blob-x: 55%; --blob-y: 55%;
+      }
     }
 
     /* Glow pulse on preview */
@@ -674,7 +865,7 @@
       font-weight: 500;
       letter-spacing: 0.25em;
       text-transform: uppercase;
-      color: var(--color-text-dim);
+      color: var(--color-accent-human);
       margin-bottom: var(--space-md);
     }
 
@@ -893,6 +1084,7 @@
     <canvas id="starfield"></canvas>
   </div>
   <div class="atmosphere"></div>
+  <div class="depth-fog" id="depthFog"></div>
   <div class="cursor-glow" id="cursorGlow"></div>
 
   <main>
@@ -914,9 +1106,11 @@
           </svg>
         </a>
       </div>
-      <div class="hero__scroll">
-        <div class="hero__scroll-line"></div>
-        <span>Scroll</span>
+      <div class="hero__scroll" onclick="document.querySelector('.thesis').scrollIntoView({behavior: 'smooth'})">
+        <div class="hero__scroll-mouse">
+          <div class="hero__scroll-wheel"></div>
+        </div>
+        <span class="hero__scroll-text">Scroll</span>
       </div>
     </section>
 
@@ -958,7 +1152,7 @@
 
       <div class="parts">
         <!-- Part 1: Friction -->
-        <article class="part part--friction">
+        <article class="part part--friction" data-href="#" data-disabled="true">
           <div class="part__preview">
             <div class="part__preview-bg"></div>
           </div>
@@ -982,7 +1176,7 @@
         </article>
 
         <!-- Part 2: Abstraction -->
-        <article class="part part--abstraction">
+        <article class="part part--abstraction" data-href="#" data-disabled="true">
           <div class="part__preview">
             <div class="part__preview-bg"></div>
           </div>
@@ -1006,7 +1200,7 @@
         </article>
 
         <!-- Part 3: Streetlight - FEATURED -->
-        <article class="part part--featured part--streetlight">
+        <article class="part part--featured part--streetlight" data-href="visualizations/complementarity-view/">
           <div class="part__preview">
             <div class="part__preview-bg"></div>
           </div>
@@ -1030,7 +1224,7 @@
         </article>
 
         <!-- Part 4: Seams -->
-        <article class="part part--seams">
+        <article class="part part--seams" data-href="#" data-disabled="true">
           <div class="part__preview">
             <div class="part__preview-bg"></div>
           </div>
@@ -1054,7 +1248,7 @@
         </article>
 
         <!-- Part 5: Pace -->
-        <article class="part part--pace">
+        <article class="part part--pace" data-href="#" data-disabled="true">
           <div class="part__preview">
             <div class="part__preview-bg"></div>
           </div>
@@ -1124,7 +1318,7 @@
             </p>
             <div class="voice__attribution">
               <span class="voice__name">Kathleen Brandenburg</span>
-              <span class="voice__role">Principal, IA Collaborative</span>
+              <span class="voice__role">Co-founder & Co-CEO, IA Collaborative</span>
             </div>
           </div>
 
@@ -1140,7 +1334,7 @@
 
           <div class="voice reveal">
             <p class="voice__text">
-              "Ripples in the pond, how many different design firms were transformed and design practices inside of big organizations and teachers came out of it."
+              "None of that would happen if we'd had AI back then. I could have stayed with the original small group of seven or eight people. We could have done everything we were trying to do."
             </p>
             <div class="voice__attribution">
               <span class="voice__name">Larry Keeley</span>
@@ -1351,6 +1545,30 @@
     })();
 
     // ============================================================
+    // DEPTH FOG EFFECT - Shows when scrolled past hero
+    // ============================================================
+    (function() {
+      const depthFog = document.getElementById('depthFog');
+      const hero = document.querySelector('.hero');
+
+      function updateFog() {
+        const heroBottom = hero.offsetTop + hero.offsetHeight;
+        const scrolled = window.scrollY > heroBottom * 0.5;
+        const atBottom = (window.innerHeight + window.scrollY) >= document.body.offsetHeight - 100;
+
+        // Show fog when scrolled past hero, hide when near bottom
+        if (scrolled && !atBottom) {
+          depthFog.classList.add('visible');
+        } else {
+          depthFog.classList.remove('visible');
+        }
+      }
+
+      window.addEventListener('scroll', updateFog, { passive: true });
+      updateFog();
+    })();
+
+    // ============================================================
     // SCROLL REVEAL - STAGGERED
     // ============================================================
     (function() {
@@ -1385,6 +1603,135 @@
         target.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
     });
+
+    // ============================================================
+    // CARD CLICK HANDLING
+    // ============================================================
+    (function() {
+      const parts = document.querySelectorAll('.part[data-href]');
+
+      parts.forEach(part => {
+        part.addEventListener('click', function(e) {
+          // Don't navigate if clicking on the action button directly
+          if (e.target.closest('.part__action')) return;
+
+          const href = this.dataset.href;
+          const disabled = this.dataset.disabled === 'true';
+
+          if (!disabled && href && href !== '#') {
+            window.location.href = href;
+          }
+        });
+      });
+    })();
+
+    // ============================================================
+    // GRADIENT ANIMATION FALLBACK (for browsers without @property)
+    // ============================================================
+    (function() {
+      // Check if @property is supported
+      const supportsAtProperty = CSS.registerProperty !== undefined;
+
+      if (!supportsAtProperty) {
+        // Fallback: animate with JavaScript
+        const animations = {
+          friction: {
+            element: document.querySelector('.part--friction .part__preview-bg'),
+            duration: 12000,
+            animate: (t, el) => {
+              const blob1x = 25 + 35 * Math.sin(t * 0.0005);
+              const blob1y = 65 - 20 * Math.cos(t * 0.0004);
+              const blob2x = 75 - 40 * Math.cos(t * 0.0003);
+              const blob2y = 35 + 20 * Math.sin(t * 0.0006);
+              const blob3x = 50 + 20 * Math.sin(t * 0.0004);
+              const blob3y = 50 + 20 * Math.cos(t * 0.0005);
+              el.style.background = `
+                radial-gradient(circle at ${blob1x}% ${blob1y}%, rgba(251, 191, 36, 0.4) 0%, transparent 45%),
+                radial-gradient(circle at ${blob2x}% ${blob2y}%, rgba(245, 158, 11, 0.3) 0%, transparent 40%),
+                radial-gradient(circle at ${blob3x}% ${blob3y}%, rgba(217, 119, 6, 0.2) 0%, transparent 50%),
+                linear-gradient(135deg, #0a0a0f 0%, #1a1510 100%)
+              `;
+            }
+          },
+          abstraction: {
+            element: document.querySelector('.part--abstraction .part__preview-bg'),
+            animate: (t, el) => {
+              const blob1x = 45 + 25 * Math.sin(t * 0.0004);
+              const blob1y = 75 - 25 * Math.cos(t * 0.0003);
+              const blob2x = 25 + 40 * Math.cos(t * 0.0005);
+              const blob2y = 25 + 45 * Math.sin(t * 0.0004);
+              const blob3x = 80 - 35 * Math.sin(t * 0.0003);
+              const blob3y = 50 + 25 * Math.cos(t * 0.0005);
+              el.style.background = `
+                radial-gradient(circle at ${blob1x}% ${blob1y}%, rgba(99, 102, 241, 0.35) 0%, transparent 50%),
+                radial-gradient(circle at ${blob2x}% ${blob2y}%, rgba(34, 211, 238, 0.25) 0%, transparent 45%),
+                radial-gradient(circle at ${blob3x}% ${blob3y}%, rgba(79, 70, 229, 0.2) 0%, transparent 40%),
+                linear-gradient(135deg, #0a0a0f 0%, #0f1020 100%)
+              `;
+            }
+          },
+          streetlight: {
+            element: document.querySelector('.part--streetlight .part__preview-bg'),
+            animate: (t, el) => {
+              const lightW = 42 + 6 * Math.sin(t * 0.0008);
+              const lightH = 80 + 8 * Math.cos(t * 0.0006);
+              const lightOpacity = 0.5 + 0.1 * Math.sin(t * 0.001);
+              const glowX = 48 + 4 * Math.sin(t * 0.0007);
+              el.style.background = `
+                radial-gradient(ellipse ${lightW}% ${lightH}% at 50% 0%, rgba(251, 191, 36, ${lightOpacity}) 0%, transparent 60%),
+                radial-gradient(ellipse 30% 50% at ${glowX}% 20%, rgba(253, 224, 71, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 50% 100%, rgba(0, 0, 0, 0.9) 0%, transparent 70%),
+                linear-gradient(180deg, #1a1608 0%, #050507 100%)
+              `;
+            }
+          },
+          seams: {
+            element: document.querySelector('.part--seams .part__preview-bg'),
+            animate: (t, el) => {
+              const seamOffset = 10 + 10 * Math.sin(t * 0.0003);
+              const blob1x = 65 - 25 * Math.cos(t * 0.0004);
+              const blob1y = 45 + 10 * Math.sin(t * 0.0005);
+              const blob2x = 35 + 25 * Math.sin(t * 0.0003);
+              const blob2y = 60 - 20 * Math.cos(t * 0.0004);
+              el.style.background = `
+                repeating-linear-gradient(90deg, transparent 0px, transparent ${40 + seamOffset}px, rgba(52, 211, 153, 0.12) ${40 + seamOffset}px, rgba(52, 211, 153, 0.12) ${41 + seamOffset}px),
+                radial-gradient(circle at ${blob1x}% ${blob1y}%, rgba(52, 211, 153, 0.25) 0%, transparent 45%),
+                radial-gradient(circle at ${blob2x}% ${blob2y}%, rgba(34, 197, 94, 0.15) 0%, transparent 40%),
+                linear-gradient(135deg, #0a0a0f 0%, #0a1510 100%)
+              `;
+            }
+          },
+          pace: {
+            element: document.querySelector('.part--pace .part__preview-bg'),
+            animate: (t, el) => {
+              const layer1 = 4 * Math.sin(t * 0.0002);
+              const layer2 = 18 + 7 * Math.cos(t * 0.00025);
+              const layer3 = 35 + 7 * Math.sin(t * 0.0003);
+              const blobX = 50 + 5 * Math.cos(t * 0.0004);
+              const blobY = 60 + 10 * Math.sin(t * 0.0003);
+              el.style.background = `
+                linear-gradient(0deg, rgba(139, 92, 246, 0.18) ${layer1}%, transparent ${layer1 + 25}%),
+                linear-gradient(0deg, rgba(99, 102, 241, 0.12) ${layer2}%, transparent ${layer2 + 25}%),
+                linear-gradient(0deg, rgba(34, 211, 238, 0.08) ${layer3}%, transparent ${layer3 + 25}%),
+                radial-gradient(circle at ${blobX}% ${blobY}%, rgba(139, 92, 246, 0.2) 0%, transparent 50%),
+                linear-gradient(135deg, #0a0a0f 0%, #100a18 100%)
+              `;
+            }
+          }
+        };
+
+        function animateAll(time) {
+          Object.values(animations).forEach(anim => {
+            if (anim.element) {
+              anim.animate(time, anim.element);
+            }
+          });
+          requestAnimationFrame(animateAll);
+        }
+
+        requestAnimationFrame(animateAll);
+      }
+    })();
   </script>
 </body>
 </html>
