@@ -51,10 +51,111 @@ const CONFIG = {
 };
 
 // ============================================================
+// State Manager
+// ============================================================
+
+const StateManager = {
+    // View mode: 'normal' | 'ai-view' | 'human-view'
+    mode: 'normal',
+
+    // Currently focused unobservable (null or orb id)
+    focusedOrb: null,
+
+    // Camera state
+    currentPreset: 'overview',
+    idleTime: 0,
+    isAutoOrbit: false,
+
+    // Audio
+    audioEnabled: false,
+
+    // Detail level: 'full' | 'reduced'
+    detailLevel: 'full',
+
+    // Interaction state
+    lastInteractionTime: Date.now(),
+
+    // Listeners for state changes
+    listeners: [],
+
+    // Subscribe to state changes
+    subscribe(callback) {
+        this.listeners.push(callback);
+        return () => {
+            this.listeners = this.listeners.filter(l => l !== callback);
+        };
+    },
+
+    // Notify all listeners
+    notify(key, value) {
+        this.listeners.forEach(callback => callback(key, value));
+    },
+
+    // Set mode with notification
+    setMode(mode) {
+        if (this.mode !== mode) {
+            this.mode = mode;
+            this.notify('mode', mode);
+        }
+    },
+
+    // Set focused orb with notification
+    setFocusedOrb(orbId) {
+        if (this.focusedOrb !== orbId) {
+            this.focusedOrb = orbId;
+            this.notify('focusedOrb', orbId);
+        }
+    },
+
+    // Record user interaction (resets idle timer)
+    recordInteraction() {
+        this.lastInteractionTime = Date.now();
+        if (this.isAutoOrbit) {
+            this.isAutoOrbit = false;
+            this.notify('isAutoOrbit', false);
+        }
+    },
+
+    // Check if idle (no interaction for specified ms)
+    isIdle(thresholdMs = 30000) {
+        return Date.now() - this.lastInteractionTime > thresholdMs;
+    },
+
+    // Set camera preset
+    setPreset(presetName) {
+        if (this.currentPreset !== presetName) {
+            this.currentPreset = presetName;
+            this.notify('currentPreset', presetName);
+        }
+    }
+};
+
+// ============================================================
+// Camera Presets
+// ============================================================
+
+const CAMERA_PRESETS = {
+    overview: {
+        position: { x: 12, y: 12, z: 14 },
+        target: { x: 2, y: 0, z: 0 }
+    },
+    ai: {
+        position: { x: -5, y: 8, z: 5 },
+        target: { x: -2, y: 1, z: 0 }
+    },
+    human: {
+        position: { x: 8, y: 6, z: 8 },
+        target: { x: 3, y: 0.5, z: 0 }
+    }
+};
+
+// ============================================================
 // Global variables
 // ============================================================
 
 let scene, camera, renderer, controls;
+let connectionLine = null; // For hover connection lines
+let humanFigurePosition = new THREE.Vector3(2, 0.8, 0); // Human figure center
 let time = 0;
 let mouse = { x: 0, y: 0 };
 let mouseClient = { x: 0, y: 0 };
