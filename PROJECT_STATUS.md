@@ -1,7 +1,7 @@
 # Project Status: Interactive Data Visualizations
 
-> **Last Updated:** December 20, 2025 (Evening)
-> **Current Focus:** Landing page refinement + God Rays WebGL effect tuning
+> **Last Updated:** December 21, 2025
+> **Current Focus:** Complementarity View orb animation polish
 
 ---
 
@@ -186,23 +186,27 @@ Illustrates the "streetlight effect" — what AI can observe vs. the vast domain
 
 #### Visual Metaphor
 An **isometric 3D street scene**:
-- **Street lamp** casts a cone of warm light = AI's observable domain
+- **Street lamp** casts a cone of cool LED blue/white light = AI's observable domain
 - **AI figure** (cyan, geometric) stands in the light = AI working within its context window
 - **Human figure** (green, organic) stands at the boundary = Human accessing broader knowledge
 - **Green perception circle** on ground = Human's perception area (overlaps ~20% with AI's light)
 - **8 Unobservable orbs** (amber) float in human's area = Tacit knowledge AI cannot see
 
-#### The 8 Unobservables
-Each orb has unique visual identity and behavior:
+**Color Separation:** LED blue/white for AI's observable domain, amber for unobservables (distinct, no conflict)
 
-1. **Intuition** (◎) — Irregular pulsing rhythm, knowing something is wrong before you can articulate why
-2. **Physical Presence** (◈) — Lower float with slight vibration, the weight of a handshake
-3. **Reading the Room** (◇) — Orbiting small particles, the collective mood
-4. **Relationship Capital** (∞) — Infinity ring structure, trust built through years
-5. **Institutional Memory** (⌘) — Nested/layered spheres, how things actually work
-6. **Contextual Meaning** (⟡) — Iridescent color shift, understanding what "fine" really means
-7. **Timing & Rhythm** (◐) — Clock-like rotation indicator, knowing when to push and when to wait
-8. **What's Not Said** (○) — Fade in/out transparency, the pause that speaks volumes
+#### The 8 Unobservables
+Each orb has unique visual identity with orbiting/external elements for distinctiveness:
+
+1. **Intuition** (◎) — Irregular pulsing + 3 erratic spark particles orbiting
+2. **Physical Presence** (◈) — Lower float, slow breathing + 5 gravity particles falling around
+3. **Reading the Room** (◇) — Scanning ring that flows smoothly around the orb's surface (top to bottom loop)
+4. **Relationship Capital** (∞) — Dual infinity rings + 2 bond particles traveling along paths
+5. **Institutional Memory** (⌘) — 3 nested wireframe spheres with pulsing opacity
+6. **Contextual Meaning** (⟡) — Amber-only color shift (no red) + 3 orbiting context particles
+7. **Timing & Rhythm** (◐) — Clock hand with discrete steps + 4 orbiting hour markers
+8. **What's Not Said** (○) — Asymmetric fade cycle + 4 ghost wisps drifting outward
+
+**Animation Principles:** All animations are continuous, smooth, and cyclic with NO visible resets
 
 #### Technical Implementation
 - **Scene setup:** Three.js with PerspectiveCamera, WebGLRenderer
@@ -240,10 +244,9 @@ Each orb has unique visual identity and behavior:
 - Default OFF (respects browser autoplay policy)
 
 **Visual Atmosphere**
-- Dust particles drifting in light beam (150 particles)
+- Dust particles drifting downward in light beam (50 particles, from lamp to ground)
 - Human figure heartbeat glow (emissive intensity pulse ~1Hz)
 - Human figure breathing animation (subtle Y-scale oscillation)
-- AI ambient fog particles floating around AI figure (60 particles)
 - Constellation lines visible when zoomed out
 - Proximity-based orb glow (brighter when camera is close)
 - Auto-orbit idle mode after 30s inactivity
@@ -305,7 +308,7 @@ The project uses a comprehensive design system defined in `shared/design-system.
 
 ### Typography
 - **Landing Page:** Fraunces (display) + DM Sans (body)
-- **Complementarity View:** Playfair Display + Source Sans 3
+- **Complementarity View:** Fraunces (display) + DM Sans (body) — now matches landing page
 - **Design System Default:** Cormorant Garamond (display) + Outfit (body)
 
 ### Spacing & Sizing
@@ -393,9 +396,8 @@ python3 -m http.server 8080
    - `createConnectionLine()` / `removeConnectionLine()` / `updateConnectionLine()` — Orb-to-human links
 
    **Visual Effects**
-   - `createDustParticles()` — 150 particles in light beam
-   - `createAIAmbientFog()` — 60 particles around AI figure
-   - `ORB_EFFECTS` — Per-orb unique animations (pulsing, orbiting particles, etc.)
+   - `createDustParticles()` — 50 particles drifting downward from lamp
+   - `ORB_EFFECTS` — Per-orb unique animations (sparks, gravity particles, wisps, rings, etc.)
    - `updateProximityGlow()` — Orbs glow brighter when camera is close
    - `updateConstellationLines()` — Lines between orbs visible when zoomed out
 
@@ -468,10 +470,11 @@ http://localhost:8080/visualizations/complementarity-view/ # Complementarity Vie
 ### Color Hex Values (Complementarity View)
 ```javascript
 bg: 0x08080c         // Dark background
-lampGlow: 0xfbbf24   // Amber lamp light
+lampLight: 0xf0f6ff  // Cool white LED (slight blue tint)
+lampGlow: 0xd8e8ff   // LED blue/white glow
 ai: 0x22d3ee         // Cyan AI figure
 human: 0x34d399      // Green human figure
-unobservable: 0xf59e0b // Orange unobservables
+unobservable: 0xf59e0b // Amber unobservables (distinct from lamp)
 ```
 
 ### Camera Position
@@ -492,7 +495,7 @@ When starting a new session, read this file first.
 3. **Recent work?** Run `git log --oneline -5` to see recent commits
 4. **Plan file?** Check `.claude/plans/` for any active implementation plans
 
-### Current State (as of Dec 20, 2025 Evening)
+### Current State (as of Dec 21, 2025)
 - **Landing Page:** Complete with WebGL god rays effect
   - Starfield with multi-layer parallax and shooting stars
   - God rays shader (recently tuned: fewer rays, less dense, dimmer center, faster, extended reach)
@@ -502,21 +505,27 @@ When starting a new session, read this file first.
   - Three view modes (Overview, See as AI, See as Human) with consistent dark transitions
   - Click-to-focus on orbs with detail panel and connection lines
   - Audio system (ambient soundscape, hover/focus sounds)
-  - Visual effects (dust particles, human breathing/heartbeat, AI fog)
-  - Distinct visual identity for each unobservable orb
+  - Visual effects (50 dust particles flowing downward, human breathing/heartbeat)
+  - **NEW: Each orb has unique orbiting/external elements** (sparks, gravity particles, wisps, etc.)
+  - **NEW: LED blue/white light for AI domain** (distinct from amber unobservables)
+  - **NEW: Typography matches landing page** (Fraunces + DM Sans)
+  - **NEW: All animations are smooth and cyclic** (no jerky resets)
   - Auto-orbit idle mode, keyboard navigation, constellation lines
   - Refined UI layout (view controls top center, legend bottom left vertical)
+  - Header layout with proper flexbox (title hugs left, quote fills right, single-line)
 - **Other Visualizations:** Planned but not started
 
 ### Key Design Decisions Made
 1. **Landing Page Aesthetic:** Observatory/exploratory feel (like a planetarium)
-2. **Typography:** Fraunces (display) + DM Sans (body) for landing; Playfair Display + Source Sans 3 for viz
+2. **Typography:** Fraunces (display) + DM Sans (body) for both landing page AND Complementarity View
 3. **Three.js Version:** Locked to r128 for OrbitControls compatibility
 4. **No Build Tools:** Direct CDN loading for simplicity
 5. **View Transitions:** All mode changes go through dark phase first for consistency
 6. **Audio Default:** Off by default, user must click to enable
 7. **UI Layout:** View controls top center (pill), legend bottom left (vertical), PTZ center (floating), audio bottom right
 8. **God Rays:** WebGL shader implementation for performance and quality
+9. **Color Separation:** LED blue/white for AI's observable domain, amber for unobservables (no color conflict)
+10. **Animation Quality:** All animations must be continuous, smooth, cyclic — no visible resets or jerky movements
 
 ### Files to Review for Context
 1. `PROJECT_STATUS.md` — This file (start here)

@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>The Complementarity View | What AI Cannot See</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>◎</text></svg>">
 
     <!-- Fonts: Fraunces (display) + DM Sans (body) - matches landing page -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -544,6 +545,239 @@
             border-color: rgba(255, 255, 255, 0.3);
             color: var(--color-text);
         }
+
+        /* ============================================================
+           Mobile Responsive Styles
+           ============================================================ */
+
+        /* Grab handle for bottom sheet (hidden on desktop) */
+        .detail-panel__handle {
+            display: none;
+        }
+
+        /* Mobile onboarding overlay (hidden on desktop) */
+        .mobile-onboarding {
+            display: none;
+        }
+
+        /* Tablet breakpoint (768px) */
+        @media (max-width: 768px) {
+            /* Header: stack vertically, hide quote */
+            .header {
+                flex-direction: column;
+                padding: 1rem;
+                gap: 0.5rem;
+            }
+
+            .title-group {
+                width: 100%;
+            }
+
+            .header h1 {
+                font-size: 1.35rem;
+            }
+
+            .quote {
+                display: none;
+            }
+
+            /* Detail Panel: Bottom sheet style */
+            .detail-panel {
+                top: auto;
+                right: 0;
+                bottom: 0;
+                left: 0;
+                width: 100%;
+                max-height: 55vh;
+                padding: 1.5rem;
+                border-radius: 20px 20px 0 0;
+                transform: translateY(100%);
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            .detail-panel.visible {
+                transform: translateY(0);
+            }
+
+            .detail-panel__handle {
+                display: block;
+                width: 40px;
+                height: 4px;
+                background: rgba(255, 255, 255, 0.3);
+                border-radius: 2px;
+                margin: 0 auto 1rem;
+            }
+
+            .detail-panel__close {
+                top: 0.75rem;
+                right: 0.75rem;
+                width: 44px;
+                height: 44px;
+            }
+
+            .detail-panel__nav-btn {
+                min-height: 48px;
+                font-size: 0.9rem;
+            }
+
+            /* View Controls: Move to bottom, icons only */
+            .view-controls {
+                top: auto;
+                bottom: 4rem;
+                padding: 0.3rem;
+            }
+
+            .view-btn {
+                min-width: 44px;
+                min-height: 44px;
+                padding: 0.5rem;
+                justify-content: center;
+            }
+
+            .view-btn__label {
+                display: none;
+            }
+
+            .view-btn__icon {
+                font-size: 1.1rem;
+            }
+
+            /* Legend: Compact */
+            .legend {
+                bottom: 1rem;
+                left: 1rem;
+                padding: 0.6rem 0.8rem;
+                gap: 0.4rem;
+            }
+
+            .legend-item {
+                font-size: 0.6rem;
+            }
+
+            .legend-dot {
+                width: 6px;
+                height: 6px;
+            }
+
+            /* Controls hint: Hide on mobile */
+            .controls-hint {
+                display: none;
+            }
+
+            /* Audio button: Icon only */
+            .audio-btn {
+                bottom: 1rem;
+                right: 1rem;
+                min-width: 44px;
+                min-height: 44px;
+                padding: 0.5rem;
+                justify-content: center;
+            }
+
+            .audio-btn__label {
+                display: none;
+            }
+
+            .audio-btn__icon {
+                font-size: 1.2rem;
+            }
+
+            /* Typography scaling */
+            .unobservable-label .title {
+                font-size: 0.6rem;
+            }
+
+            .unobservable-label .symbol {
+                font-size: 0.85rem;
+            }
+
+            .scene-label {
+                font-size: 0.6rem;
+            }
+
+            .figure-label {
+                font-size: 0.75rem;
+            }
+
+            /* Touch targets */
+            .embed-btn {
+                width: 44px;
+                height: 44px;
+            }
+
+            /* Mobile onboarding */
+            .mobile-onboarding {
+                display: flex;
+                position: fixed;
+                inset: 0;
+                z-index: 300;
+                background: rgba(8, 8, 12, 0.9);
+                align-items: center;
+                justify-content: center;
+                opacity: 0;
+                pointer-events: none;
+                transition: opacity 0.3s ease;
+            }
+
+            .mobile-onboarding.visible {
+                opacity: 1;
+                pointer-events: auto;
+            }
+
+            .onboarding-content {
+                text-align: center;
+                padding: 2rem;
+            }
+
+            .onboarding-content p {
+                font-family: var(--font-body);
+                font-size: 1.1rem;
+                color: var(--color-text);
+                margin-bottom: 1rem;
+            }
+
+            .onboarding-dismiss {
+                margin-top: 1rem;
+                padding: 0.75rem 2rem;
+                background: rgba(245, 158, 11, 0.2);
+                border: 1px solid rgba(245, 158, 11, 0.5);
+                border-radius: 8px;
+                color: var(--color-unobservable);
+                font-family: var(--font-body);
+                font-size: 1rem;
+                cursor: pointer;
+                min-height: 48px;
+            }
+        }
+
+        /* Small phone breakpoint (480px) */
+        @media (max-width: 480px) {
+            .header {
+                padding: 0.75rem 1rem;
+            }
+
+            .header h1 {
+                font-size: 1.15rem;
+            }
+
+            .header .subtitle {
+                font-size: 0.7rem;
+            }
+
+            .view-controls {
+                bottom: 3.5rem;
+            }
+
+            .legend {
+                max-width: 120px;
+            }
+
+            /* Hide orb titles on very small screens, show only symbols */
+            .unobservable-label .title {
+                display: none;
+            }
+        }
     </style>
 </head>
 <body>
@@ -602,6 +836,7 @@
 
     <!-- Detail Panel for focused unobservable -->
     <div class="detail-panel" id="detailPanel">
+        <div class="detail-panel__handle"></div>
         <button class="detail-panel__close" onclick="exitFocus()">&times;</button>
         <div class="detail-panel__symbol" id="detailSymbol"></div>
         <h2 class="detail-panel__title" id="detailTitle"></h2>
@@ -633,6 +868,16 @@
         <span class="audio-btn__icon">♪</span>
         <span class="audio-btn__label">Sound Off</span>
     </button>
+
+    <!-- Mobile Onboarding -->
+    <div class="mobile-onboarding" id="mobileOnboarding">
+        <div class="onboarding-content">
+            <p>Tap orbs to explore</p>
+            <p>Pinch to zoom</p>
+            <p>Drag to rotate</p>
+            <button class="onboarding-dismiss" onclick="dismissOnboarding()">Got it</button>
+        </div>
+    </div>
 
     <script src="main.js"></script>
 </body>

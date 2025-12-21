@@ -51,6 +51,12 @@ const CONFIG = {
 };
 
 // ============================================================
+// Touch Device Detection
+// ============================================================
+
+const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
+// ============================================================
 // Performance & Embed Mode Detection
 // ============================================================
 
@@ -1543,41 +1549,45 @@ const ORB_EFFECTS = {
         }
     },
     room: {
-        // Orbiting particles with smooth mood shifts - collective energy
+        // Scanning ring that flows around the outside of the orb - reading the collective energy
         setup: (group) => {
-            for (let i = 0; i < 4; i++) {
-                const particleGeom = new THREE.SphereGeometry(0.018, 8, 8);
-                const particleMat = new THREE.MeshBasicMaterial({
-                    color: CONFIG.colors.unobservable,
-                    transparent: true,
-                    opacity: 0.5
-                });
-                const particle = new THREE.Mesh(particleGeom, particleMat);
-                particle.userData.orbitAngle = (i / 4) * Math.PI * 2;
-                particle.userData.orbitRadius = 0.22 + (i % 2) * 0.05;
-                particle.userData.baseSpeed = 0.4 + (i * 0.1); // Slightly different base speeds
-                group.add(particle);
-            }
-            group.userData.moodShift = 0;
-            group.userData.targetMoodShift = 0;
+            // Create a thin torus ring that wraps around the outside of the glow sphere
+            const ringGeom = new THREE.TorusGeometry(0.22, 0.006, 8, 48);
+            const ringMat = new THREE.MeshBasicMaterial({
+                color: CONFIG.colors.unobservable,
+                transparent: true,
+                opacity: 0.6
+            });
+            const ring = new THREE.Mesh(ringGeom, ringMat);
+            ring.rotation.x = Math.PI / 2; // Lay flat (horizontal)
+            group.add(ring);
         },
         animate: (group, time) => {
-            // Smooth mood shift transitions (no jerky resets)
-            const shiftCycle = Math.sin(time * 0.08) * 0.3; // Smooth oscillating mood
-            group.userData.moodShift = shiftCycle;
+            const ring = group.children[2]; // After orb and glow
+            if (!ring) return;
 
-            group.children.slice(2).forEach((particle, i) => {
-                const baseSpeed = particle.userData.baseSpeed;
-                const speed = baseSpeed + group.userData.moodShift;
+            // Smooth continuous scanning - ring travels along the surface of a sphere
+            // Using sine for vertical position creates perpetual up/down flow
+            const scanSpeed = 0.5;
+            const phase = time * scanSpeed;
 
-                // Continuous angle accumulation (no resets)
-                const angle = particle.userData.orbitAngle + time * speed;
-                const radius = particle.userData.orbitRadius;
+            // Vertical position: oscillates from top to bottom of the glow sphere
+            const glowRadius = 0.18;
+            const scanY = Math.sin(phase) * glowRadius;
+            ring.position.y = scanY;
 
-                particle.position.x = Math.cos(angle) * radius;
-                particle.position.z = Math.sin(angle) * radius;
-                particle.position.y = Math.sin(time * 0.5 + i) * 0.03;
-            });
+            // Ring radius adjusts to follow the sphere's surface (smaller at poles, larger at equator)
+            // This creates the effect of the ring hugging the spherical surface
+            const normalizedY = scanY / glowRadius; // -1 to 1
+            const surfaceRadius = glowRadius * Math.sqrt(1 - normalizedY * normalizedY) + 0.04;
+
+            // Apply as scale (base geometry is 0.22 radius)
+            const baseRadius = 0.22;
+            const scale = surfaceRadius / baseRadius;
+            ring.scale.set(scale, scale, 1);
+
+            // Opacity: consistent glow, slightly brighter at equator where ring is largest
+            ring.material.opacity = 0.45 + (1 - Math.abs(normalizedY)) * 0.25;
         }
     },
     trust: {
@@ -1983,8 +1993,10 @@ function updateLabels() {
         label.element.style.top = y + 'px';
 
         if (label.isUnobservable) {
-            const isHovered = hoveredUnobservable === label.data.id;
-            label.element.classList.toggle('hovered', isHovered);
+            // Apply hover state for BOTH hover and focus (mobile tap uses focus)
+            const isActive = hoveredUnobservable === label.data.id ||
+                            StateManager.focusedOrb === label.data.id;
+            label.element.classList.toggle('hovered', isActive);
         }
     });
 }
@@ -1997,6 +2009,12 @@ function updateTooltip() {
     const tooltip = document.getElementById('tooltip');
     const tooltipTitle = document.getElementById('tooltipTitle');
     const tooltipText = document.getElementById('tooltipText');
+
+    // Hide tooltip on touch devices - use bottom sheet detail panel instead
+    if (isTouchDevice) {
+        tooltip.classList.remove('visible');
+        return;
+    }
 
     if (hoveredUnobservable) {
         const u = CONFIG.unobservables.find(u => u.id === hoveredUnobservable);
@@ -2176,6 +2194,38 @@ function setupEvents() {
         StateManager.recordInteraction();
     });
 
+    // Touch-to-select orbs (mobile tap support)
+    document.addEventListener('touchstart', (e) => {
+        // Skip if touching UI elements
+        if (e.target.closest('.view-btn, .detail-panel, .legend, .header, .audio-btn, .view-controls')) {
+            return;
+        }
+
+        const touch = e.touches[0];
+        const touchMouse = new THREE.Vector2(
+            (touch.clientX / window.innerWidth) * 2 - 1,
+            -(touch.clientY / window.innerHeight) * 2 + 1
+        );
+
+        // Raycast to find orb
+        const raycaster = new THREE.Raycaster();
+        raycaster.setFromCamera(touchMouse, camera);
+        const orbs = unobservableObjects.map(g => g.children[0]);
+        const intersects = raycaster.intersectObjects(orbs);
+
+        if (intersects.length > 0) {
+            const orbId = intersects[0].object.parent.userData.unobservable.id;
+
+            // If already focused on this orb, let OrbitControls handle it
+            if (StateManager.focusedOrb === orbId) return;
+
+            e.preventDefault();
+            e.stopPropagation();
+            StateManager.recordInteraction();
+            focusOnOrb(orbId);
+        }
+    }, { passive: false });
+
     // Click to focus on unobservables
     document.addEventListener('click', (e) => {
         StateManager.recordInteraction();
@@ -2240,6 +2290,66 @@ function setupEvents() {
     document.addEventListener('mousedown', () => {
         StateManager.recordInteraction();
     });
+
+    // Setup bottom sheet gestures for mobile
+    setupBottomSheetGestures();
+}
+
+// Bottom sheet swipe-to-dismiss gesture
+function setupBottomSheetGestures() {
+    if (!isTouchDevice) return;
+
+    const panel = document.getElementById('detailPanel');
+    let startY = 0;
+    let currentY = 0;
+
+    panel.addEventListener('touchstart', (e) => {
+        // Don't interfere with nav button taps
+        if (e.target.closest('.detail-panel__nav-btn, .detail-panel__close')) return;
+        startY = e.touches[0].clientY;
+    }, { passive: true });
+
+    panel.addEventListener('touchmove', (e) => {
+        if (startY === 0) return;
+        currentY = e.touches[0].clientY;
+        const deltaY = currentY - startY;
+        // Only allow dragging down
+        if (deltaY > 0) {
+            panel.style.transform = `translateY(${deltaY}px)`;
+        }
+    }, { passive: true });
+
+    panel.addEventListener('touchend', () => {
+        const deltaY = currentY - startY;
+        // Dismiss if dragged more than 100px down
+        if (deltaY > 100) {
+            exitFocus();
+        }
+        panel.style.transform = '';
+        startY = 0;
+        currentY = 0;
+    });
+}
+
+// Mobile onboarding overlay
+function showMobileOnboarding() {
+    if (!isTouchDevice) return;
+    if (localStorage.getItem('complementarity-onboarding-dismissed')) return;
+
+    const overlay = document.getElementById('mobileOnboarding');
+    if (overlay) {
+        setTimeout(() => overlay.classList.add('visible'), 500);
+        // Auto-dismiss after 8 seconds
+        setTimeout(() => dismissOnboarding(), 8000);
+    }
+}
+
+function dismissOnboarding() {
+    const overlay = document.getElementById('mobileOnboarding');
+    if (overlay) {
+        overlay.classList.remove('visible');
+        localStorage.setItem('complementarity-onboarding-dismissed', 'true');
+    }
 }
 
 // Navigate to next/previous orb
@@ -2288,6 +2398,11 @@ function playIntro() {
     setTimeout(() => {
         document.getElementById('controlsHint').classList.add('visible');
     }, 3500);
+
+    // Show mobile onboarding after intro animations
+    setTimeout(() => {
+        showMobileOnboarding();
+    }, 4000);
 
     // Camera animation - zoom in from further corner
     if (typeof gsap !== 'undefined') {
