@@ -24,7 +24,8 @@
       "Bash(git fetch:*)",
       "Bash(git ls-tree:*)",
       "Skill(pdf)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(git -C \"/Users/idstuart/Documents/Semester 4/Independent Study/intentional-ai-deployment\" log --oneline -10)"
     ]
   }
 }

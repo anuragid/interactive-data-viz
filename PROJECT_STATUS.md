@@ -1,7 +1,7 @@
 # Project Status: Interactive Data Visualizations
 
-> **Last Updated:** December 20, 2025
-> **Current Focus:** Landing page complete, Complementarity View functional
+> **Last Updated:** December 20, 2025 (Evening)
+> **Current Focus:** Landing page refinement + God Rays WebGL effect tuning
 
 ---
 
@@ -39,7 +39,7 @@ Each visualization must work in **three contexts**:
 
 ```
 intentional-ai-deployment/
-├── index.html                    # Landing page (observatory aesthetic)
+├── index.html                    # Landing page (observatory aesthetic with god rays)
 ├── package.json                  # Dependencies (shadcn for dev)
 ├── PROJECT_STATUS.md             # This file
 ├── CLAUDE.md                     # Instructions for Claude
@@ -56,7 +56,8 @@ intentional-ai-deployment/
 ├── visualizations/
 │   └── complementarity-view/     # The Complementarity View (FUNCTIONAL)
 │       ├── index.html            # HTML shell with embedded CSS
-│       └── main.js               # Three.js visualization logic
+│       ├── main.js               # Three.js visualization logic
+│       └── styles.css            # Additional styles
 │
 ├── embed/
 │   └── loader.js                 # Embed loader for articles
@@ -100,11 +101,83 @@ intentional-ai-deployment/
 
 ---
 
+## Landing Page
+
+**Status:** Complete with WebGL god rays effect
+**Location:** `index.html` (root)
+
+### Design Approach
+- **Aesthetic:** Observatory/exploratory — like stepping into a planetarium
+- **Entry Point:** Works for both article readers and direct discovery
+- **Navigation:** Recommended journey order, but flexible exploration allowed
+
+### Features
+- **Starfield Background:** Canvas-based multi-layer parallax with shooting stars
+- **God Rays Effect:** WebGL shader-based volumetric light shafts (Three.js)
+- **Atmospheric Overlay:** Subtle colored gradients for depth
+- **Cursor Glow:** Mouse-follow ambient light effect
+- **Depth Fog:** Appears when scrolled past hero section
+- **Hero Section:** "We Are Choosing By Not Choosing" with staggered reveal
+- **Thesis Section:** Ken Holstein quote + Streetlight Effect explanation
+- **Series Cards:** Bento grid layout with animated preview backgrounds
+- **Voices Section:** Expert quotes in card grid
+- **Scroll Reveals:** IntersectionObserver-based animations
+
+### God Rays Component (WebGL Shader)
+
+The god rays are implemented using Three.js WebGL with a custom fragment shader (lines 1388-1616 in `index.html`).
+
+#### Controllable Uniforms
+
+| Property | Current Value | Purpose |
+|----------|---------------|---------|
+| `u_colorBack` | `(0.02, 0.02, 0.027, 0.0)` | Background color (RGBA) |
+| `u_color1` | `(0.984, 0.749, 0.141, 0.35)` | Primary ray color (amber) |
+| `u_color2` | `(0.961, 0.620, 0.043, 0.25)` | Secondary ray color (deep amber) |
+| `u_color3` | `(1.0, 0.85, 0.4, 0.18)` | Tertiary ray color (light gold) |
+| `u_offsetX` | `0.0` | Horizontal light source position |
+| `u_offsetY` | `-1.0` | Vertical light source position (top of viewport) |
+| `u_frequency` | `0.75` | Number of rays (reduced from 1.5) |
+| `u_spotty` | `0.5` | Ray irregularity |
+| `u_midSize` | `0.5` | Central glow size |
+| `u_midIntensity` | `0.16` | Central glow brightness (reduced from 0.8) |
+| `u_density` | `0.35` | Ray density/thickness (reduced from 0.7) |
+| `u_bloom` | `0.9` | Glow blending (0=normal, 1=additive) |
+| `u_speed` | `0.7` | Animation speed (increased from 0.5) |
+
+#### Distance Fade (in fragment shader)
+```glsl
+// Line 1577 - controls how far rays extend
+float distanceFade = 1.0 - smoothstep(0.0, 20.0, radius);  // Extended from 5.0 to 20.0
+```
+
+#### Recent Adjustments (Dec 20, 2025)
+- Reduced ray frequency by 50% (1.5 → 0.75)
+- Reduced ray density by 50% (0.7 → 0.35)
+- Reduced central glow brightness by 80% (0.8 → 0.16)
+- Increased animation speed (0.5 → 0.7)
+- Extended distance fade to maximum (5.0 → 20.0)
+
+### Typography
+- **Display:** Fraunces (elegant, variable font)
+- **Body:** DM Sans (clean, geometric)
+
+### Color Palette
+```css
+--color-void: #050507;           /* Deep space background */
+--color-text: #f4f3f1;           /* Warm white text */
+--color-accent-warm: #fbbf24;    /* Amber highlights */
+--color-accent-ai: #22d3ee;      /* Cyan for AI */
+--color-accent-human: #34d399;   /* Green for human */
+```
+
+---
+
 ## Visualizations
 
-### 1. Complementarity View (FUNCTIONAL)
+### 1. Complementarity View (FULLY ENHANCED)
 
-**Status:** Functional, ready for refinement
+**Status:** Complete with 24+ interactive features
 **Location:** `visualizations/complementarity-view/`
 **Article Part:** Part 3
 
@@ -120,14 +193,16 @@ An **isometric 3D street scene**:
 - **8 Unobservable orbs** (amber) float in human's area = Tacit knowledge AI cannot see
 
 #### The 8 Unobservables
-1. **Intuition** (◎) — Knowing something is wrong before you can articulate why
-2. **Physical Presence** (◈) — The weight of a handshake, the tension in a room
-3. **Reading the Room** (◇) — The collective mood, energy that shifts without anyone speaking
-4. **Relationship Capital** (∞) — Trust built through years
-5. **Institutional Memory** (⌘) — How things actually work, beyond the org chart
-6. **Contextual Meaning** (⟡) — Understanding what "fine" really means
-7. **Timing & Rhythm** (◐) — Knowing when to push and when to wait
-8. **What's Not Said** (○) — The pause that speaks volumes
+Each orb has unique visual identity and behavior:
+
+1. **Intuition** (◎) — Irregular pulsing rhythm, knowing something is wrong before you can articulate why
+2. **Physical Presence** (◈) — Lower float with slight vibration, the weight of a handshake
+3. **Reading the Room** (◇) — Orbiting small particles, the collective mood
+4. **Relationship Capital** (∞) — Infinity ring structure, trust built through years
+5. **Institutional Memory** (⌘) — Nested/layered spheres, how things actually work
+6. **Contextual Meaning** (⟡) — Iridescent color shift, understanding what "fine" really means
+7. **Timing & Rhythm** (◐) — Clock-like rotation indicator, knowing when to push and when to wait
+8. **What's Not Said** (○) — Fade in/out transparency, the pause that speaks volumes
 
 #### Technical Implementation
 - **Scene setup:** Three.js with PerspectiveCamera, WebGLRenderer
@@ -135,19 +210,59 @@ An **isometric 3D street scene**:
 - **Controls:** OrbitControls with damping, zoom limits, ground clipping prevention
 - **Labels:** HTML overlays projected to 3D positions via `Vector3.project(camera)`
 - **Animation:** GSAP for intro, requestAnimationFrame for continuous animation
+- **State Management:** Centralized StateManager for modes, focus, audio, idle time
+- **Audio:** Web Audio API with ambient soundscape and spatial positioning
 
-#### Current Features
-- Isometric corner camera view
-- Pan/tilt/zoom with mouse (drag, scroll, right-drag)
-- Hover tooltips on unobservables
-- Animated intro with camera zoom
-- Legend with color-coded elements
-- Scene labels that move with camera
+#### Interactive Features
+
+**View Modes (Top Center Controls)**
+- **Overview** — Balanced view showing both AI and human perspectives
+- **See as AI** — Dims unobservables, brightens light cone, shows AI's limited view
+- **See as Human** — Expands unobservables (1.2x), shows full perception domain
+- All transitions go through dark phase first for consistent, contemplative feel
+
+**Click-to-Focus System**
+- Click any orb → Camera animates to focus position
+- Detail panel appears with full description
+- Connection line drawn from orb to human figure
+- Other elements dim to draw attention
+- ESC or click elsewhere to exit focus mode
+
+**Hover Interactions**
+- Orb hover → Tooltip with name and description
+- Connection line appears linking orb to human figure
+- Subtle hover sound effect (when audio enabled)
+
+**Audio System (Bottom Right)**
+- Toggle button for ambient soundscape
+- Night ambiance with subtle environmental audio
+- Hover and focus sound effects
+- Default OFF (respects browser autoplay policy)
+
+**Visual Atmosphere**
+- Dust particles drifting in light beam (150 particles)
+- Human figure heartbeat glow (emissive intensity pulse ~1Hz)
+- Human figure breathing animation (subtle Y-scale oscillation)
+- AI ambient fog particles floating around AI figure (60 particles)
+- Constellation lines visible when zoomed out
+- Proximity-based orb glow (brighter when camera is close)
+- Auto-orbit idle mode after 30s inactivity
+
+**Keyboard Navigation**
+- Arrow keys cycle through orbs
+- 1-3 for preset camera views
+- ESC exits focus mode
+
+#### UI Layout
+- **Top Center:** View mode controls (Overview / See as AI / See as Human) in pill-shaped container
+- **Bottom Left:** Legend (vertical orientation) with color-coded elements
+- **Bottom Center:** PTZ instructions (floating text, no container)
+- **Bottom Right:** Audio toggle
 
 #### Known Issues / Future Work
-- Consider adding audio toggle (ambient soundscape)
-- May need responsive adjustments for smaller viewports
+- Responsive adjustments for smaller viewports
 - Touch support for mobile (partially implemented)
+- Consider cinematic intro option via URL parameter
 
 ---
 
@@ -173,43 +288,6 @@ An **isometric 3D street scene**:
 
 ---
 
-## Landing Page
-
-**Status:** Complete (first version)
-**Location:** `index.html` (root)
-
-### Design Approach
-- **Aesthetic:** Observatory/exploratory — like stepping into a planetarium
-- **Entry Point:** Works for both article readers and direct discovery
-- **Navigation:** Recommended journey order, but flexible exploration allowed
-
-### Features
-- **Starfield Background:** Canvas-based twinkling animation
-- **Hero Section:** "We Are Choosing By Not Choosing" with staggered reveal
-- **Thesis Section:** Ken Holstein quote + Streetlight Effect explanation
-- **Journey Section:** 6 chapter cards (1 ready, 5 coming soon)
-- **Scroll Reveals:** IntersectionObserver-based animations
-
-### Typography
-- **Display:** Fraunces (elegant, variable font)
-- **Body:** DM Sans (clean, geometric)
-
-### Color Palette
-```css
---color-void: #07070a;           /* Deep space background */
---color-text: #f4f3f1;           /* Warm white text */
---color-accent-warm: #fbbf24;    /* Amber highlights */
---color-accent-ai: #22d3ee;      /* Cyan for AI */
---color-accent-human: #34d399;   /* Green for human */
-```
-
-### Future Improvements
-- Add preview thumbnails/animations for each visualization card
-- Consider adding a subtle ambient sound toggle
-- Responsive testing on various devices
-
----
-
 ## Design System
 
 The project uses a comprehensive design system defined in `shared/design-system.css`.
@@ -226,9 +304,9 @@ The project uses a comprehensive design system defined in `shared/design-system.
 | Muted | `--foreground-muted` | `#a8a094` (neutral-400) | Secondary text, labels |
 
 ### Typography
-- **Display:** Cormorant Garamond (elegant serif) — Headlines, quotes
-- **Body:** Outfit (geometric sans-serif) — Labels, UI text
-- **Visualization:** Playfair Display + Source Sans 3 (complementarity-view specific)
+- **Landing Page:** Fraunces (display) + DM Sans (body)
+- **Complementarity View:** Playfair Display + Source Sans 3
+- **Design System Default:** Cormorant Garamond (display) + Outfit (body)
 
 ### Spacing & Sizing
 Uses a consistent spacing scale: `--space-1` through `--space-24`
@@ -286,22 +364,61 @@ python3 -m http.server 8080
 
 ## Key Files to Understand
 
+### For Landing Page
+
+1. **`index.html`** (root)
+   - All CSS is embedded in `<style>` tags (lines 15-1094)
+   - Starfield canvas animation (lines 1619-1770)
+   - God rays WebGL shader (lines 1388-1616)
+   - Cursor glow effect (lines 1772-1797)
+   - Depth fog management (lines 1799-1821)
+   - Scroll reveal animations (lines 1823-1846)
+   - Part card preview animations with CSS `@property` (lines 535-675)
+
 ### For Complementarity View
 
 1. **`visualizations/complementarity-view/main.js`**
+
+   **Core Setup**
    - `init()` — Scene setup, camera, renderer, controls
    - `createStreetLamp()` + `createLightCone()` — Lamp and light cone
    - `createAIFigure()` / `createHumanFigure()` — The two figures
-   - `createUnobservables()` — The 8 amber orbs
+   - `createUnobservables()` — The 8 amber orbs with unique visual identities
    - `createSceneLabels()` — "Observable Data" / "The Unobservable" labels
-   - `updateLabels()` — Projects all labels to screen coordinates
-   - `animate()` — Main render loop
+
+   **State & Interaction**
+   - `StateManager` — Centralized state object (viewMode, focusedOrb, audioEnabled, idleTime)
+   - `focusOnOrb()` / `exitFocus()` — Click-to-focus system
+   - `applyViewMode()` — Handle view transitions (Overview/AI/Human) with dark phase
+   - `createConnectionLine()` / `removeConnectionLine()` / `updateConnectionLine()` — Orb-to-human links
+
+   **Visual Effects**
+   - `createDustParticles()` — 150 particles in light beam
+   - `createAIAmbientFog()` — 60 particles around AI figure
+   - `ORB_EFFECTS` — Per-orb unique animations (pulsing, orbiting particles, etc.)
+   - `updateProximityGlow()` — Orbs glow brighter when camera is close
+   - `updateConstellationLines()` — Lines between orbs visible when zoomed out
+
+   **Audio**
+   - `AudioManager` — Web Audio API wrapper
+   - `createAmbientSoundscape()` — Multi-layer ambient pad with drone, harmonics, noise
+   - `playHoverSound()` / `playFocusSound()` — Interaction feedback
+   - `toggleAmbient()` — Audio on/off toggle
+
+   **Animation & Camera**
+   - `animate()` — Main render loop with all visual updates
    - `playIntro()` — GSAP camera animation on load
+   - `revealUnobservables()` — Staggered orb reveal animation
+   - `updateLabels()` — Projects all labels to screen coordinates
+   - Auto-orbit after 30s idle
 
 2. **`visualizations/complementarity-view/index.html`**
    - All CSS is embedded in `<style>` tags
    - CDN script imports for Three.js, OrbitControls, GSAP
    - HTML structure for labels, tooltip, legend, controls hint
+   - View mode buttons (top center)
+   - Audio toggle (bottom right)
+   - Detail panel for focused orb
 
 3. **`shared/design-system.css`**
    - Complete design token definitions
@@ -375,9 +492,20 @@ When starting a new session, read this file first.
 3. **Recent work?** Run `git log --oneline -5` to see recent commits
 4. **Plan file?** Check `.claude/plans/` for any active implementation plans
 
-### Current State (as of Dec 20, 2025)
-- **Landing Page:** Complete first version, ready for refinement
-- **Complementarity View:** Functional with pan/tilt/zoom, hover tooltips, animated intro
+### Current State (as of Dec 20, 2025 Evening)
+- **Landing Page:** Complete with WebGL god rays effect
+  - Starfield with multi-layer parallax and shooting stars
+  - God rays shader (recently tuned: fewer rays, less dense, dimmer center, faster, extended reach)
+  - Bento grid series cards with animated backgrounds
+  - Smooth scroll reveals
+- **Complementarity View:** Fully enhanced with 24+ features including:
+  - Three view modes (Overview, See as AI, See as Human) with consistent dark transitions
+  - Click-to-focus on orbs with detail panel and connection lines
+  - Audio system (ambient soundscape, hover/focus sounds)
+  - Visual effects (dust particles, human breathing/heartbeat, AI fog)
+  - Distinct visual identity for each unobservable orb
+  - Auto-orbit idle mode, keyboard navigation, constellation lines
+  - Refined UI layout (view controls top center, legend bottom left vertical)
 - **Other Visualizations:** Planned but not started
 
 ### Key Design Decisions Made
@@ -385,12 +513,17 @@ When starting a new session, read this file first.
 2. **Typography:** Fraunces (display) + DM Sans (body) for landing; Playfair Display + Source Sans 3 for viz
 3. **Three.js Version:** Locked to r128 for OrbitControls compatibility
 4. **No Build Tools:** Direct CDN loading for simplicity
+5. **View Transitions:** All mode changes go through dark phase first for consistency
+6. **Audio Default:** Off by default, user must click to enable
+7. **UI Layout:** View controls top center (pill), legend bottom left (vertical), PTZ center (floating), audio bottom right
+8. **God Rays:** WebGL shader implementation for performance and quality
 
 ### Files to Review for Context
 1. `PROJECT_STATUS.md` — This file (start here)
-2. `index.html` — Landing page
-3. `visualizations/complementarity-view/main.js` — Visualization logic
-4. `.claude/plans/sharded-zooming-allen.md` — Complementarity View rebuild plan (may be outdated)
+2. `index.html` — Landing page with god rays
+3. `visualizations/complementarity-view/main.js` — Full visualization logic with all features
+4. `visualizations/complementarity-view/index.html` — HTML structure and CSS
+5. `shared/design-system.css` — Design tokens for future use
 
 ---
 
