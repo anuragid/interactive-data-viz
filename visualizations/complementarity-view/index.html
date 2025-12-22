@@ -495,7 +495,8 @@
             color: var(--color-text);
         }
 
-        .audio-btn--active {
+        .audio-btn--active,
+        .audio-btn--active:hover {
             background: rgba(251, 191, 36, 0.15);
             border-color: rgba(251, 191, 36, 0.4);
             color: var(--color-light-warm);
@@ -681,6 +682,14 @@
 
             .audio-btn__icon {
                 font-size: 1.2rem;
+            }
+
+            .audio-btn--active,
+            .audio-btn--active:hover,
+            .audio-btn--active:active {
+                background: rgba(251, 191, 36, 0.25);
+                border-color: rgba(251, 191, 36, 0.5);
+                color: var(--color-light-warm);
             }
 
             /* Typography scaling */

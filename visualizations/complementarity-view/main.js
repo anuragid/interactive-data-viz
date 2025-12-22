@@ -145,31 +145,69 @@ const AudioManager = {
         if (this.initialized) return;
 
         try {
-            this.context = new (window.AudioContext || window.webkitAudioContext)();
+            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            this.context = new AudioContextClass();
             this.masterGain = this.context.createGain();
             this.masterGain.gain.value = 0;
             this.masterGain.connect(this.context.destination);
             this.initialized = true;
-            console.log('Audio Manager initialized');
+            console.log('Audio Manager initialized, state:', this.context.state);
+
+            // Handle Safari audio interruptions (phone calls, etc.)
+            this.context.addEventListener('statechange', () => {
+                console.log('AudioContext state changed:', this.context.state);
+                if (this.context.state === 'interrupted' && this.enabled) {
+                    // Audio was interrupted - update UI to reflect this
+                    const btn = document.getElementById('audioToggle');
+                    if (btn) {
+                        btn.classList.remove('audio-btn--active');
+                        const label = btn.querySelector('.audio-btn__label');
+                        if (label) label.textContent = 'Sound Off';
+                    }
+                    this.enabled = false;
+                    this.stopAmbientSoundscape();
+                }
+            });
         } catch (e) {
             console.warn('Web Audio API not supported:', e);
         }
     },
 
     // Toggle ambient soundscape
-    toggleAmbient() {
+    async toggleAmbient() {
         if (!this.initialized) this.init();
         if (!this.context) return;
 
         this.enabled = !this.enabled;
 
+        // Update UI immediately for responsiveness
+        const btn = document.getElementById('audioToggle');
+        if (btn) {
+            btn.classList.toggle('audio-btn--active', this.enabled);
+            const label = btn.querySelector('.audio-btn__label');
+            if (label) label.textContent = this.enabled ? 'Sound On' : 'Sound Off';
+        }
+
         if (this.enabled) {
-            // Resume context if suspended
-            if (this.context.state === 'suspended') {
-                this.context.resume();
+            // Resume context if suspended or interrupted (Safari)
+            if (this.context.state === 'suspended' || this.context.state === 'interrupted') {
+                try {
+                    await this.context.resume();
+                    console.log('AudioContext resumed, state:', this.context.state);
+                } catch (e) {
+                    console.warn('Failed to resume AudioContext:', e);
+                    // Revert UI state on failure
+                    this.enabled = false;
+                    if (btn) {
+                        btn.classList.remove('audio-btn--active');
+                        const label = btn.querySelector('.audio-btn__label');
+                        if (label) label.textContent = 'Sound Off';
+                    }
+                    return;
+                }
             }
 
-            // Create ambient soundscape
+            // Create ambient soundscape after context is running
             this.createAmbientSoundscape();
 
             // Fade in
@@ -186,13 +224,6 @@ const AudioManager = {
             setTimeout(() => {
                 this.stopAmbientSoundscape();
             }, 600);
-        }
-
-        // Update UI
-        const btn = document.getElementById('audioToggle');
-        if (btn) {
-            btn.classList.toggle('audio-btn--active', this.enabled);
-            btn.querySelector('.audio-btn__label').textContent = this.enabled ? 'Sound On' : 'Sound Off';
         }
     },
 
