@@ -915,6 +915,197 @@ let aiRobotState = {
 };
 
 // ============================================================
+// Meeting System - AI and Human converge to exchange information
+// ============================================================
+const MEETING_POINT = { x: 0.8, z: 0 }; // Intersection between AI and human zones
+const MEETING_INTERVAL_MIN = 25; // Minimum seconds between meetings
+const MEETING_INTERVAL_MAX = 45; // Maximum seconds between meetings
+const MEETING_TALK_DURATION = 5; // How long they "talk" when meeting
+
+let meetingState = {
+    active: false,
+    phase: 'idle', // 'idle', 'ai_walking', 'human_walking', 'facing', 'talking'
+    timer: 0,
+    nextMeetingIn: 12, // Start with a meeting after 12 seconds
+    aiAtMeetingPoint: false,
+    humanAtMeetingPoint: false
+};
+
+// Check if a position is close to target
+function isNearTarget(current, target, threshold = 0.15) {
+    const dx = current.x - target.x;
+    const dz = current.z - target.z;
+    return Math.sqrt(dx * dx + dz * dz) < threshold;
+}
+
+// Update meeting system - completely self-contained state machine
+function updateMeetingState(deltaTime) {
+    // Count down to next meeting when idle
+    if (!meetingState.active) {
+        meetingState.nextMeetingIn -= deltaTime;
+        if (meetingState.nextMeetingIn <= 0) {
+            // Start meeting - interrupt current patrol
+            meetingState.active = true;
+            meetingState.phase = 'ai_walking';
+            meetingState.timer = 0;
+            meetingState.aiAtMeetingPoint = false;
+            meetingState.humanAtMeetingPoint = false;
+
+            // Send AI to meeting point
+            const aiTarget = { x: MEETING_POINT.x - 0.5, z: MEETING_POINT.z };
+            aiRobotState.startPos = { ...aiRobotState.currentPos };
+            aiRobotState.targetPos = aiTarget;
+            const aiDx = aiTarget.x - aiRobotState.currentPos.x;
+            const aiDz = aiTarget.z - aiRobotState.currentPos.z;
+            const aiDist = Math.sqrt(aiDx * aiDx + aiDz * aiDz);
+            aiRobotState.startHeadAngle = aiRobotState.currentHeadAngle;
+            aiRobotState.targetHeadAngle = Math.atan2(aiDx, aiDz);
+            aiRobotState.turnDuration = 0.4;
+            aiRobotState.moveDuration = Math.max(1.5, aiDist * 0.8);
+            aiRobotState.phase = 'turning';
+            aiRobotState.phaseTimer = 0;
+
+            // Send human to meeting point
+            const humanTarget = { x: MEETING_POINT.x + 0.5, z: MEETING_POINT.z };
+            humanState.startPos = { ...humanState.currentPos };
+            humanState.targetPos = humanTarget;
+            const humanDx = humanTarget.x - humanState.currentPos.x;
+            const humanDz = humanTarget.z - humanState.currentPos.z;
+            const humanDist = Math.sqrt(humanDx * humanDx + humanDz * humanDz);
+            humanState.startAngle = humanState.currentAngle;
+            humanState.targetAngle = Math.atan2(humanDx, humanDz);
+            humanState.turnDuration = 0.4;
+            humanState.moveDuration = Math.max(1.5, humanDist * 0.8);
+            humanState.phase = 'turning';
+            humanState.phaseTimer = 0;
+        }
+        return;
+    }
+
+    // Meeting is active - manage the phases
+    meetingState.timer += deltaTime;
+
+    // Phase: Walking to meeting point
+    if (meetingState.phase === 'ai_walking' || meetingState.phase === 'human_walking') {
+        // Check if AI arrived
+        if (!meetingState.aiAtMeetingPoint) {
+            const aiTarget = { x: MEETING_POINT.x - 0.5, z: MEETING_POINT.z };
+            if (isNearTarget(aiRobotState.currentPos, aiTarget) && aiRobotState.phase === 'paused') {
+                meetingState.aiAtMeetingPoint = true;
+            }
+        }
+
+        // Check if human arrived
+        if (!meetingState.humanAtMeetingPoint) {
+            const humanTarget = { x: MEETING_POINT.x + 0.5, z: MEETING_POINT.z };
+            if (isNearTarget(humanState.currentPos, humanTarget) && humanState.phase === 'paused') {
+                meetingState.humanAtMeetingPoint = true;
+            }
+        }
+
+        // Both arrived - transition to facing
+        if (meetingState.aiAtMeetingPoint && meetingState.humanAtMeetingPoint) {
+            meetingState.phase = 'facing';
+            meetingState.timer = 0;
+
+            // Make them face each other
+            // AI faces human
+            const aiToHumanAngle = Math.atan2(
+                humanState.currentPos.x - aiRobotState.currentPos.x,
+                humanState.currentPos.z - aiRobotState.currentPos.z
+            );
+            aiRobotState.startHeadAngle = aiRobotState.currentHeadAngle;
+            aiRobotState.targetHeadAngle = aiToHumanAngle;
+            aiRobotState.startPos = { ...aiRobotState.currentPos };
+            aiRobotState.targetPos = { ...aiRobotState.currentPos }; // Don't move
+            aiRobotState.turnDuration = 0.5;
+            aiRobotState.moveDuration = 0.1; // Minimal
+            aiRobotState.phase = 'turning';
+            aiRobotState.phaseTimer = 0;
+
+            // Human faces AI
+            const humanToAiAngle = Math.atan2(
+                aiRobotState.currentPos.x - humanState.currentPos.x,
+                aiRobotState.currentPos.z - humanState.currentPos.z
+            );
+            humanState.startAngle = humanState.currentAngle;
+            humanState.targetAngle = humanToAiAngle;
+            humanState.startPos = { ...humanState.currentPos };
+            humanState.targetPos = { ...humanState.currentPos }; // Don't move
+            humanState.turnDuration = 0.5;
+            humanState.moveDuration = 0.1; // Minimal
+            humanState.phase = 'turning';
+            humanState.phaseTimer = 0;
+        }
+
+        // Timeout - if they take too long, skip to talking anyway
+        if (meetingState.timer > 8) {
+            meetingState.phase = 'facing';
+            meetingState.timer = 0;
+        }
+    }
+
+    // Phase: Facing each other (brief pause)
+    if (meetingState.phase === 'facing') {
+        if (meetingState.timer > 0.8) {
+            meetingState.phase = 'talking';
+            meetingState.timer = 0;
+        }
+    }
+
+    // Phase: Talking - exchange information
+    if (meetingState.phase === 'talking') {
+        // Keep them paused during talking
+        aiRobotState.phase = 'paused';
+        aiRobotState.phaseTimer = 0;
+        aiRobotState.pauseDuration = 99; // Don't auto-resume
+        humanState.phase = 'paused';
+        humanState.phaseTimer = 0;
+        humanState.pauseDuration = 99; // Don't auto-resume
+
+        // Subtle head movements - AI inner head nods
+        if (aiInnerHead) {
+            const nod = Math.sin(meetingState.timer * 3.5) * 0.1;
+            const tilt = Math.sin(meetingState.timer * 2.1) * 0.05;
+            aiInnerHead.rotation.x = nod;
+            aiInnerHead.rotation.z = tilt;
+        }
+
+        // Human head nods
+        if (humanHead) {
+            const nod = Math.sin(meetingState.timer * 4 + 0.8) * 0.08;
+            humanHead.rotation.x = nod;
+        }
+
+        // Done talking
+        if (meetingState.timer >= MEETING_TALK_DURATION) {
+            // End meeting - release back to patrol
+            meetingState.active = false;
+            meetingState.phase = 'idle';
+            meetingState.nextMeetingIn = MEETING_INTERVAL_MIN +
+                Math.random() * (MEETING_INTERVAL_MAX - MEETING_INTERVAL_MIN);
+
+            // Reset AI for normal patrol
+            aiRobotState.pauseDuration = 0.8;
+            aiRobotState.phase = 'paused';
+            aiRobotState.phaseTimer = 0;
+
+            // Reset human for normal patrol
+            humanState.pauseDuration = 0.8;
+            humanState.phase = 'paused';
+            humanState.phaseTimer = 0;
+
+            // Reset head rotations
+            if (humanHead) humanHead.rotation.x = 0;
+            if (aiInnerHead) {
+                aiInnerHead.rotation.x = 0;
+                aiInnerHead.rotation.z = 0;
+            }
+        }
+    }
+}
+
+// ============================================================
 // Initialize
 // ============================================================
 
@@ -1731,7 +1922,8 @@ function updateAIRobotMovement(deltaTime) {
         }
 
         // Transition to turning when pause is complete
-        if (aiRobotState.phaseTimer >= aiRobotState.pauseDuration) {
+        // IMPORTANT: Don't pick new target during active meeting
+        if (aiRobotState.phaseTimer >= aiRobotState.pauseDuration && !meetingState.active) {
             // Pick new target
             aiRobotState.startPos = { ...aiRobotState.currentPos };
             aiRobotState.targetPos = pickNewPatrolTarget();
@@ -1922,7 +2114,8 @@ function updateHumanMovement(deltaTime) {
         }
 
         // Transition to turning when pause is complete
-        if (humanState.phaseTimer >= humanState.pauseDuration) {
+        // IMPORTANT: Don't pick new target during active meeting
+        if (humanState.phaseTimer >= humanState.pauseDuration && !meetingState.active) {
             humanState.startPos = { ...humanState.currentPos };
             humanState.targetPos = pickHumanPatrolTarget();
 
@@ -3270,6 +3463,10 @@ function animate() {
     if (lightCone) {
         lightCone.material.opacity = 0.06 + Math.sin(time * 3) * 0.02;
     }
+
+    // ===== MEETING SYSTEM =====
+    // Update meeting state (AI and human occasionally converge)
+    updateMeetingState(0.016);
 
     // ===== AI ROBOT ANIMATIONS =====
 
