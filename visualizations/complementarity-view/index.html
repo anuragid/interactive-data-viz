@@ -715,14 +715,21 @@
                 display: none;
             }
 
+            /* Show label only for active view button */
+            .view-btn--active .view-btn__label {
+                display: inline;
+            }
+
             .view-btn__icon {
                 font-size: 1.1rem;
             }
 
-            /* Legend: Compact */
+            /* Legend: Move to top right on mobile to avoid bottom controls */
             .legend {
-                bottom: 1rem;
-                left: 1rem;
+                bottom: auto;
+                top: 4.5rem;
+                left: auto;
+                right: 1rem;
                 padding: 0.6rem 0.8rem;
                 gap: 0.4rem;
             }
