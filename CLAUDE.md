@@ -29,9 +29,11 @@ This project creates interactive visualizations for a 5-part article series on H
 ## Local Development
 
 ```bash
-python3 -m http.server 8000
-# Visit: http://localhost:8000/visualizations/complementarity-view/
+python3 -m http.server 8080
+# Visit: http://localhost:8080/visualizations/complementarity-view/
 ```
+
+**Always use port 8080** — Do not use port 8000.
 
 ## Before Editing
 

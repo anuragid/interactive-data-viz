@@ -25,7 +25,12 @@
       "Bash(git ls-tree:*)",
       "Skill(pdf)",
       "Bash(git push:*)",
-      "Bash(git -C \"/Users/idstuart/Documents/Semester 4/Independent Study/intentional-ai-deployment\" log --oneline -10)"
+      "Bash(git -C \"/Users/idstuart/Documents/Semester 4/Independent Study/intentional-ai-deployment\" log --oneline -10)",
+      "Bash(npx @gltf-transform/cli optimize:*)",
+      "Bash(ls:*)",
+      "Bash(npx @gltf-transform/cli copy:*)",
+      "Bash(npx @gltf-transform/cli resize:*)",
+      "Bash(npx @gltf-transform/cli inspect:*)"
     ]
   }
 }

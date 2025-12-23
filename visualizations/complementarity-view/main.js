@@ -893,6 +893,26 @@ let hoveredUnobservable = null;
 let unobservableObjects = [];
 let labelElements = [];
 let lightCone, humanGlow, aiEye, humanArm, humanBody;
+let aiRobot = null; // Robot group for movement
+let aiWheels = []; // Wheel meshes for rotation animation
+let aiShield = null; // Legacy - removed from new design
+let aiShieldMaterial = null; // Legacy - removed from new design
+let aiHeadMaterial = null; // Legacy - replaced by aiInnerHeadMaterial
+let aiEyeMaterial = null;
+let aiRobotState = {
+    targetPos: { x: -2, z: 0 },
+    currentPos: { x: -2, z: 0 },
+    phase: 'paused', // 'paused', 'turning', 'moving'
+    phaseTimer: 0,
+    pauseDuration: 2,
+    turnDuration: 0.6, // Dynamic based on angle
+    moveDuration: 3,
+    startPos: { x: -2, z: 0 },
+    // Head rotation tracking for smooth interpolation
+    startHeadAngle: 0,
+    targetHeadAngle: 0,
+    currentHeadAngle: 0
+};
 
 // ============================================================
 // Initialize
@@ -1338,124 +1358,760 @@ function updateProximityGlow() {
 }
 
 // ============================================================
-// AI Figure
+// AI Figure - R4X Robot
 // ============================================================
 
-function createAIFigure() {
-    const aiGroup = new THREE.Group();
+// Store references for animations
+let aiBodyMesh = null;
+let aiInnerHead = null;
+let aiInnerHeadMaterial = null;
+let aiGlassDome = null;
+let aiEyeLeft = null;
+let aiEyeRight = null;
+let aiEyeLookTarget = { x: 0, y: 0 };
+let aiAntenna1 = null;
+let aiAntenna2 = null;
+let aiGradientOffset = 0;
+let aiHeadGroup = null; // Head group for rotation
+let aiTargetHeadAngle = 0; // Target angle for head to face
 
+function createAIFigure() {
+    aiRobot = new THREE.Group();
+    aiWheels = [];
+
+    // ===== PROPORTIONS (head ~65-70% of body size) =====
+    const bodyRadius = 0.32;
+    const headOuterRadius = 0.22;
+    const headInnerRadius = 0.18;
+
+    // ===== BODY TEXTURE (speckle pattern) =====
+    const bodyCanvas = document.createElement('canvas');
+    bodyCanvas.width = 512;
+    bodyCanvas.height = 512;
+    const ctx = bodyCanvas.getContext('2d');
+
+    // Base color #BEBEBE
+    ctx.fillStyle = '#BEBEBE';
+    ctx.fillRect(0, 0, 512, 512);
+
+    // Dark speckles
+    for (let i = 0; i < 400; i++) {
+        const x = Math.random() * 512;
+        const y = Math.random() * 512;
+        const radius = Math.random() * 1.5 + 0.5;
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(60, 60, 60, ${Math.random() * 0.35 + 0.1})`;
+        ctx.fill();
+    }
+
+    // Light speckles
+    for (let i = 0; i < 200; i++) {
+        const x = Math.random() * 512;
+        const y = Math.random() * 512;
+        const radius = Math.random() * 2 + 1;
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(210, 210, 210, ${Math.random() * 0.25 + 0.1})`;
+        ctx.fill();
+    }
+
+    const bodyTexture = new THREE.CanvasTexture(bodyCanvas);
+
+    // Body material
     const bodyMat = new THREE.MeshStandardMaterial({
-        color: CONFIG.colors.ai,
-        roughness: 0.2,
-        metalness: 0.8,
-        emissive: CONFIG.colors.ai,
-        emissiveIntensity: 0.6,
+        map: bodyTexture,
+        color: 0xBEBEBE,
+        roughness: 0.55,
+        metalness: 0.12,
     });
 
-    // Body
-    const bodyGeom = new THREE.BoxGeometry(0.5, 1.0, 0.3);
-    const body = new THREE.Mesh(bodyGeom, bodyMat);
-    body.position.y = 0.6;
-    body.castShadow = true;
-    aiGroup.add(body);
+    // ===== INNER HEAD SHADER MATERIAL (smooth animated gradient) =====
+    aiInnerHeadMaterial = new THREE.ShaderMaterial({
+        uniforms: {
+            uTime: { value: 0 },
+        },
+        vertexShader: `
+            varying vec3 vPosition;
+            void main() {
+                vPosition = position;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+        `,
+        fragmentShader: `
+            uniform float uTime;
+            varying vec3 vPosition;
 
-    // Head
-    const headGeom = new THREE.BoxGeometry(0.35, 0.35, 0.3);
-    const head = new THREE.Mesh(headGeom, bodyMat);
-    head.position.y = 1.35;
-    head.castShadow = true;
-    aiGroup.add(head);
+            vec3 hsl2rgb(float h, float s, float l) {
+                vec3 rgb = clamp(abs(mod(h * 6.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0);
+                return l + s * (rgb - 0.5) * (1.0 - abs(2.0 * l - 1.0));
+            }
 
-    // Eye
-    const eyeGeom = new THREE.BoxGeometry(0.25, 0.05, 0.02);
-    const eyeMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-    aiEye = new THREE.Mesh(eyeGeom, eyeMat);
-    aiEye.position.set(0, 1.35, 0.16);
-    aiGroup.add(aiEye);
+            void main() {
+                // Use Z position for back-to-front gradient (no seam)
+                float t = vPosition.z * 2.5 + 0.5 + uTime * 0.15; // Slower animation
 
-    // Legs
-    const legGeom = new THREE.BoxGeometry(0.15, 0.4, 0.15);
-    const leftLeg = new THREE.Mesh(legGeom, bodyMat);
-    leftLeg.position.set(-0.12, 0.2, 0);
-    aiGroup.add(leftLeg);
-    const rightLeg = new THREE.Mesh(legGeom, bodyMat);
-    rightLeg.position.set(0.12, 0.2, 0);
-    aiGroup.add(rightLeg);
+                // Smooth color cycling through spectrum
+                float hue = mod(t * 0.6 + 0.75, 1.0);
+                vec3 color = hsl2rgb(hue, 0.75, 0.55);
 
-    aiGroup.position.set(-2, 0, 0);
-    aiGroup.rotation.y = Math.PI / 8;
-    scene.add(aiGroup);
+                gl_FragColor = vec4(color, 1.0);
+            }
+        `,
+    });
 
-    // Label
-    createLabel('AI', new THREE.Vector3(-2, 2.2, 0), '#22d3ee');
+    // Glass dome material (transparent outer shell)
+    const glassMat = new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        transparent: true,
+        opacity: 0.25,
+        roughness: 0.05,
+        metalness: 0.1,
+        side: THREE.DoubleSide,
+    });
 
-    console.log('AI figure created');
+    // Collar material (rubber/silicone look)
+    const collarMat = new THREE.MeshStandardMaterial({
+        color: 0x555555, // Darker gray like rubber
+        roughness: 0.7, // Matte rubber finish
+        metalness: 0.0, // No metallic sheen
+    });
+
+    // Antenna material
+    const antennaMat = new THREE.MeshStandardMaterial({
+        color: 0x888888,
+        roughness: 0.4,
+        metalness: 0.3,
+    });
+
+    // Eye material
+    aiEyeMaterial = new THREE.MeshBasicMaterial({
+        color: 0x111111,
+        transparent: true,
+        opacity: 0.9,
+    });
+
+    // ===== BODY (large sphere that rolls) =====
+    const bodyGeom = new THREE.SphereGeometry(bodyRadius, 64, 64);
+    aiBodyMesh = new THREE.Mesh(bodyGeom, bodyMat);
+    aiBodyMesh.position.y = bodyRadius;
+    aiBodyMesh.castShadow = true;
+    aiBodyMesh.receiveShadow = true;
+    aiRobot.add(aiBodyMesh);
+
+    // ===== COLLAR (rubber gasket that holds both spheres) =====
+    // Use a torus to create the rubber/silicone look that wraps around the junction
+    const collarTubeRadius = 0.035; // Thickness of the rubber ring
+    const collarMajorRadius = bodyRadius * 0.38; // Distance from center to tube center
+
+    // Position collar so it overlaps with both body (below) and head (above)
+    // This creates the "tucking in" effect
+    const collarY = bodyRadius * 2 - collarTubeRadius * 0.3; // Slightly embedded in body top
+
+    const collarGeom = new THREE.TorusGeometry(collarMajorRadius, collarTubeRadius, 24, 48);
+    const collar = new THREE.Mesh(collarGeom, collarMat);
+    collar.rotation.x = Math.PI / 2; // Lay flat (torus is vertical by default)
+    collar.position.y = collarY;
+    collar.castShadow = true;
+    collar.receiveShadow = true;
+    aiRobot.add(collar);
+
+    // ===== HEAD ASSEMBLY (glass dome + inner sphere) =====
+    aiHeadGroup = new THREE.Group();
+    // Position head so it sits just above the collar, slightly embedded
+    aiHeadGroup.position.y = collarY + collarTubeRadius * 0.5 + headOuterRadius * 0.85;
+
+    // Glass dome (outer transparent shell)
+    const glassDomeGeom = new THREE.SphereGeometry(headOuterRadius, 48, 48);
+    aiGlassDome = new THREE.Mesh(glassDomeGeom, glassMat);
+    aiHeadGroup.add(aiGlassDome);
+
+    // Inner gradient sphere
+    const innerHeadGeom = new THREE.SphereGeometry(headInnerRadius, 48, 48);
+    aiInnerHead = new THREE.Mesh(innerHeadGeom, aiInnerHeadMaterial);
+    aiHeadGroup.add(aiInnerHead);
+
+    // ===== EYES (simple torus scaled to be oval/capsule shaped) =====
+    const eyeOutlineMat = new THREE.MeshBasicMaterial({
+        color: 0xffffff,
+    });
+    aiEyeMaterial = eyeOutlineMat;
+
+    // Simple torus, scaled to be taller than wide (capsule-like)
+    const eyeRadius = 0.018;
+    const eyeTube = 0.004;
+    const eyeGeom = new THREE.TorusGeometry(eyeRadius, eyeTube, 8, 32);
+
+    // Position eyes on front of inner sphere, facing forward
+    const eyeY = 0;
+    const eyeZ = headInnerRadius + 0.001; // Just outside the sphere surface
+    const eyeSpacing = 0.045;
+
+    aiEyeLeft = new THREE.Mesh(eyeGeom, eyeOutlineMat);
+    aiEyeLeft.scale.set(0.6, 1.4, 1); // Narrower and taller (capsule shape)
+    aiEyeLeft.position.set(-eyeSpacing, eyeY, eyeZ);
+    aiHeadGroup.add(aiEyeLeft);
+
+    aiEyeRight = new THREE.Mesh(eyeGeom, eyeOutlineMat);
+    aiEyeRight.scale.set(0.6, 1.4, 1);
+    aiEyeRight.position.set(eyeSpacing, eyeY, eyeZ);
+    aiHeadGroup.add(aiEyeRight);
+
+    aiRobot.add(aiHeadGroup);
+
+    // ===== ANTENNA EARS (circular cap with antenna like cordless phone) =====
+    // Cap - circular disc attached to side of helmet
+    const capRadius = 0.022;
+    const capThickness = 0.01;
+    const capGeom = new THREE.CylinderGeometry(capRadius, capRadius, capThickness, 16);
+
+    // Antenna - thin cylinder extending from cap
+    const antennaLength = 0.07; // Double length
+    const antennaRadius = 0.004;
+    const antennaGeom = new THREE.CylinderGeometry(antennaRadius * 0.6, antennaRadius, antennaLength, 8);
+
+    // Left antenna assembly - added to headGroup so it rotates with head
+    aiAntenna1 = new THREE.Group();
+    const leftCap = new THREE.Mesh(capGeom, antennaMat);
+    leftCap.rotation.z = Math.PI / 2; // Flat against head
+    aiAntenna1.add(leftCap);
+    const leftAntenna = new THREE.Mesh(antennaGeom, antennaMat);
+    // Point straight up from the cap
+    leftAntenna.position.set(0, antennaLength / 2, 0);
+    aiAntenna1.add(leftAntenna);
+    // Position relative to headGroup (Y=0 since headGroup is already at head height)
+    aiAntenna1.position.set(-headOuterRadius - capThickness / 2, 0, 0);
+    aiHeadGroup.add(aiAntenna1);
+
+    // Right antenna assembly - added to headGroup so it rotates with head
+    aiAntenna2 = new THREE.Group();
+    const rightCap = new THREE.Mesh(capGeom, antennaMat);
+    rightCap.rotation.z = Math.PI / 2; // Flat against head
+    aiAntenna2.add(rightCap);
+    const rightAntenna = new THREE.Mesh(antennaGeom, antennaMat);
+    // Point straight up from the cap
+    rightAntenna.position.set(0, antennaLength / 2, 0);
+    aiAntenna2.add(rightAntenna);
+    // Position relative to headGroup (Y=0 since headGroup is already at head height)
+    aiAntenna2.position.set(headOuterRadius + capThickness / 2, 0, 0);
+    aiHeadGroup.add(aiAntenna2);
+
+    // Store eye reference for legacy code
+    aiEye = { left: aiEyeLeft, right: aiEyeRight, material: aiEyeMaterial };
+
+    // Position robot in lamp light area
+    aiRobot.position.set(-2, 0, 0);
+    scene.add(aiRobot);
+
+    createLabel('AI', new THREE.Vector3(-2, 1.8, 0), '#22d3ee');
+
+    console.log('AI R4X robot created with glass dome head');
+}
+
+// Lamp pole position (avoid this area)
+const LAMP_POLE_POS = { x: -3, z: 0 };
+const LAMP_POLE_RADIUS = 0.5; // Avoidance radius around pole
+
+// Check if a path from start to end crosses near the lamp pole
+function pathCrossesLampPole(startX, startZ, endX, endZ) {
+    // Check if direct line passes too close to lamp pole
+    const dx = endX - startX;
+    const dz = endZ - startZ;
+    const len = Math.sqrt(dx * dx + dz * dz);
+    if (len < 0.01) return false;
+
+    // Normalized direction
+    const dirX = dx / len;
+    const dirZ = dz / len;
+
+    // Vector from start to lamp pole
+    const toPolX = LAMP_POLE_POS.x - startX;
+    const toPolZ = LAMP_POLE_POS.z - startZ;
+
+    // Project lamp pole onto line
+    const proj = toPolX * dirX + toPolZ * dirZ;
+
+    // Clamp to segment
+    const clampedProj = Math.max(0, Math.min(len, proj));
+
+    // Closest point on segment to lamp pole
+    const closestX = startX + dirX * clampedProj;
+    const closestZ = startZ + dirZ * clampedProj;
+
+    // Distance from closest point to lamp pole
+    const distX = closestX - LAMP_POLE_POS.x;
+    const distZ = closestZ - LAMP_POLE_POS.z;
+    const dist = Math.sqrt(distX * distX + distZ * distZ);
+
+    return dist < LAMP_POLE_RADIUS;
+}
+
+// Pick a random patrol point within the light cone area, avoiding lamp pole
+function pickNewPatrolTarget() {
+    // Light cone area: roughly x from -5 to 1, z from -2.5 to 2.5
+    const currentX = aiRobotState.currentPos.x;
+    const currentZ = aiRobotState.currentPos.z;
+
+    // Try up to 10 times to find a valid target
+    for (let attempts = 0; attempts < 10; attempts++) {
+        const x = -4.5 + Math.random() * 4; // -4.5 to -0.5
+        const z = -1.8 + Math.random() * 3.6; // -1.8 to 1.8
+
+        // Check if point is too close to lamp pole
+        const distToPole = Math.sqrt(
+            (x - LAMP_POLE_POS.x) ** 2 + (z - LAMP_POLE_POS.z) ** 2
+        );
+        if (distToPole < LAMP_POLE_RADIUS) continue;
+
+        // Check if path would cross lamp pole
+        if (pathCrossesLampPole(currentX, currentZ, x, z)) continue;
+
+        return { x, z };
+    }
+
+    // Fallback: return a safe point away from pole
+    return { x: -1, z: 1.5 };
+}
+
+// Smooth ease-in-out curve (cubic)
+function smoothEase(t) {
+    return t < 0.5
+        ? 4 * t * t * t
+        : 1 - Math.pow(-2 * t + 2, 3) / 2;
+}
+
+// Normalize angle to [-PI, PI]
+function normalizeAngle(angle) {
+    while (angle > Math.PI) angle -= Math.PI * 2;
+    while (angle < -Math.PI) angle += Math.PI * 2;
+    return angle;
+}
+
+// Update robot patrol movement
+function updateAIRobotMovement(deltaTime) {
+    if (!aiRobot) return;
+
+    const bodyRadius = 0.32; // Must match createAIFigure
+    const time = Date.now() * 0.001; // Time in seconds for organic movement
+
+    // ===== ANIMATE GRADIENT (shader uniform) =====
+    if (aiInnerHeadMaterial && aiInnerHeadMaterial.uniforms) {
+        aiInnerHeadMaterial.uniforms.uTime.value += deltaTime;
+    }
+
+    // ===== GENTLE ANTENNA BREATHING (always, varies by phase) =====
+    if (aiAntenna1 && aiAntenna2) {
+        let swayAmount, swaySpeed;
+        if (aiRobotState.phase === 'paused') {
+            swayAmount = 0.04;
+            swaySpeed = 0.002;
+        } else if (aiRobotState.phase === 'turning') {
+            swayAmount = 0.05;
+            swaySpeed = 0.003;
+        } else {
+            swayAmount = 0.06;
+            swaySpeed = 0.008;
+        }
+        const sway1 = Math.sin(time * swaySpeed * 1000) * swayAmount;
+        const sway2 = Math.sin(time * swaySpeed * 1000 + 0.5) * swayAmount * 0.8;
+        aiAntenna1.rotation.x = sway1;
+        aiAntenna2.rotation.x = sway2;
+    }
+
+    // ===== PHASE: PAUSED =====
+    if (aiRobotState.phase === 'paused') {
+        aiRobotState.phaseTimer += deltaTime;
+
+        // Gentle eye look-around while paused
+        if (aiInnerHead) {
+            const lookX = Math.sin(time * 0.4) * 0.12;
+            const lookY = Math.cos(time * 0.5) * 0.08;
+            aiInnerHead.rotation.y = lookX;
+            aiInnerHead.rotation.x = lookY;
+        }
+
+        // Transition to turning when pause is complete
+        if (aiRobotState.phaseTimer >= aiRobotState.pauseDuration) {
+            // Pick new target
+            aiRobotState.startPos = { ...aiRobotState.currentPos };
+            aiRobotState.targetPos = pickNewPatrolTarget();
+
+            // Calculate direction and angles
+            const dx = aiRobotState.targetPos.x - aiRobotState.startPos.x;
+            const dz = aiRobotState.targetPos.z - aiRobotState.startPos.z;
+            const dist = Math.sqrt(dx * dx + dz * dz);
+
+            // Store current head angle and calculate target
+            aiRobotState.startHeadAngle = aiRobotState.currentHeadAngle;
+            aiRobotState.targetHeadAngle = Math.atan2(dx, dz);
+
+            // Calculate turn amount (normalized)
+            const angleDiff = Math.abs(normalizeAngle(
+                aiRobotState.targetHeadAngle - aiRobotState.startHeadAngle
+            ));
+
+            // Dynamic turn duration: more time for larger turns (0.4 to 1.0 seconds)
+            aiRobotState.turnDuration = 0.4 + (angleDiff / Math.PI) * 0.6;
+
+            // Move duration based on distance
+            aiRobotState.moveDuration = 2.0 + dist * 0.6;
+
+            // Next pause duration
+            aiRobotState.pauseDuration = 1.8 + Math.random() * 1.5;
+
+            // Transition to turning
+            aiRobotState.phase = 'turning';
+            aiRobotState.phaseTimer = 0;
+        }
+    }
+
+    // ===== PHASE: TURNING =====
+    else if (aiRobotState.phase === 'turning') {
+        aiRobotState.phaseTimer += deltaTime;
+        const t = Math.min(aiRobotState.phaseTimer / aiRobotState.turnDuration, 1);
+
+        // Smooth eased head rotation
+        const eased = smoothEase(t);
+
+        // Calculate the shortest rotation path
+        let angleDiff = normalizeAngle(
+            aiRobotState.targetHeadAngle - aiRobotState.startHeadAngle
+        );
+
+        // Interpolate head angle smoothly
+        aiRobotState.currentHeadAngle = aiRobotState.startHeadAngle + angleDiff * eased;
+
+        // Apply to head group
+        if (aiHeadGroup) {
+            aiHeadGroup.rotation.y = aiRobotState.currentHeadAngle;
+        }
+
+        // Eyes settle to forward during turn
+        if (aiInnerHead) {
+            aiInnerHead.rotation.y *= 0.92;
+            aiInnerHead.rotation.x *= 0.92;
+        }
+
+        // Transition to moving when turn complete
+        if (t >= 1) {
+            aiRobotState.phase = 'moving';
+            aiRobotState.phaseTimer = 0;
+        }
+    }
+
+    // ===== PHASE: MOVING =====
+    else if (aiRobotState.phase === 'moving') {
+        aiRobotState.phaseTimer += deltaTime;
+        const t = Math.min(aiRobotState.phaseTimer / aiRobotState.moveDuration, 1);
+
+        // Smooth eased movement
+        const eased = smoothEase(t);
+
+        // Store previous position for rolling
+        const prevX = aiRobotState.currentPos.x;
+        const prevZ = aiRobotState.currentPos.z;
+
+        // Interpolate position
+        aiRobotState.currentPos.x = aiRobotState.startPos.x +
+            (aiRobotState.targetPos.x - aiRobotState.startPos.x) * eased;
+        aiRobotState.currentPos.z = aiRobotState.startPos.z +
+            (aiRobotState.targetPos.z - aiRobotState.startPos.z) * eased;
+
+        // Update robot position
+        aiRobot.position.x = aiRobotState.currentPos.x;
+        aiRobot.position.z = aiRobotState.currentPos.z;
+
+        // ===== BODY ROLLING =====
+        if (aiBodyMesh) {
+            const moveX = aiRobotState.currentPos.x - prevX;
+            const moveZ = aiRobotState.currentPos.z - prevZ;
+            const moveDistance = Math.sqrt(moveX * moveX + moveZ * moveZ);
+
+            if (moveDistance > 0.0001) {
+                const rollAngle = moveDistance / bodyRadius;
+                const moveDir = new THREE.Vector3(moveX, 0, moveZ).normalize();
+                const rollAxis = new THREE.Vector3(-moveDir.z, 0, moveDir.x);
+
+                const quaternion = new THREE.Quaternion();
+                quaternion.setFromAxisAngle(rollAxis, rollAngle);
+                aiBodyMesh.quaternion.premultiply(quaternion);
+            }
+        }
+
+        // Eyes stay centered while moving
+        if (aiInnerHead) {
+            aiInnerHead.rotation.y *= 0.95;
+            aiInnerHead.rotation.x *= 0.95;
+        }
+
+        // Transition to paused when movement complete
+        if (t >= 1) {
+            aiRobotState.phase = 'paused';
+            aiRobotState.phaseTimer = 0;
+        }
+    }
 }
 
 // ============================================================
-// Human Figure
+// Human Figure (3D Model with Walk Animation)
 // ============================================================
 
-// Store reference to human material for heartbeat effect
-let humanMaterial = null;
+let humanModel = null;
+let humanMixer = null;
+let humanWalkAction = null;
+let humanMaterial = null; // Keep for compatibility
+let humanModelYOffset = 0; // Y offset to keep feet on ground
+
+// Human patrol state (similar to AI robot)
+const HUMAN_AREA_CENTER = { x: 3.5, z: 0 };
+const HUMAN_AREA_RADIUS = 2.8; // Slightly smaller than perception circle
+
+let humanState = {
+    phase: 'paused', // 'paused', 'turning', 'moving'
+    phaseTimer: 0,
+    pauseDuration: 2.5,
+    turnDuration: 0.5,
+    moveDuration: 3,
+    startPos: { x: 3.5, z: 0 },
+    currentPos: { x: 3.5, z: 0 },
+    targetPos: { x: 3.5, z: 0 },
+    startAngle: 0,
+    currentAngle: 0,
+    targetAngle: 0
+};
+
+// Pick a random patrol point within human perception area
+function pickHumanPatrolTarget() {
+    for (let attempts = 0; attempts < 10; attempts++) {
+        // Random point within the human area
+        const angle = Math.random() * Math.PI * 2;
+        const radius = Math.random() * HUMAN_AREA_RADIUS;
+        const x = HUMAN_AREA_CENTER.x + Math.cos(angle) * radius;
+        const z = HUMAN_AREA_CENTER.z + Math.sin(angle) * radius;
+
+        // Ensure some minimum distance from current position
+        const dx = x - humanState.currentPos.x;
+        const dz = z - humanState.currentPos.z;
+        const dist = Math.sqrt(dx * dx + dz * dz);
+        if (dist > 0.8) {
+            return { x, z };
+        }
+    }
+    // Fallback
+    return { x: HUMAN_AREA_CENTER.x, z: 1 };
+}
+
+// Update human patrol movement
+function updateHumanMovement(deltaTime) {
+    if (!humanModel) return;
+
+    // Update animation mixer
+    if (humanMixer) {
+        humanMixer.update(deltaTime);
+    }
+
+    const time = Date.now() * 0.001;
+
+    // ===== PHASE: PAUSED =====
+    if (humanState.phase === 'paused') {
+        humanState.phaseTimer += deltaTime;
+
+        // Stop walk animation when paused
+        if (humanWalkAction && humanWalkAction.isRunning()) {
+            humanWalkAction.paused = true;
+        }
+
+        // Transition to turning when pause is complete
+        if (humanState.phaseTimer >= humanState.pauseDuration) {
+            humanState.startPos = { ...humanState.currentPos };
+            humanState.targetPos = pickHumanPatrolTarget();
+
+            const dx = humanState.targetPos.x - humanState.startPos.x;
+            const dz = humanState.targetPos.z - humanState.startPos.z;
+            const dist = Math.sqrt(dx * dx + dz * dz);
+
+            humanState.startAngle = humanState.currentAngle;
+            humanState.targetAngle = Math.atan2(dx, dz);
+
+            // Normalize angle difference
+            let angleDiff = humanState.targetAngle - humanState.startAngle;
+            while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+            while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+
+            humanState.turnDuration = 0.3 + (Math.abs(angleDiff) / Math.PI) * 0.5;
+            humanState.moveDuration = 2.5 + dist * 0.5;
+            humanState.pauseDuration = 2.0 + Math.random() * 2.0;
+
+            humanState.phase = 'turning';
+            humanState.phaseTimer = 0;
+        }
+    }
+
+    // ===== PHASE: TURNING =====
+    else if (humanState.phase === 'turning') {
+        humanState.phaseTimer += deltaTime;
+        const t = Math.min(humanState.phaseTimer / humanState.turnDuration, 1);
+        const eased = smoothEase(t);
+
+        let angleDiff = normalizeAngle(humanState.targetAngle - humanState.startAngle);
+        humanState.currentAngle = humanState.startAngle + angleDiff * eased;
+
+        if (humanModel) {
+            humanModel.rotation.y = humanState.currentAngle;
+        }
+
+        if (t >= 1) {
+            humanState.phase = 'moving';
+            humanState.phaseTimer = 0;
+
+            // Start walk animation
+            if (humanWalkAction) {
+                humanWalkAction.paused = false;
+                if (!humanWalkAction.isRunning()) {
+                    humanWalkAction.play();
+                }
+            }
+        }
+    }
+
+    // ===== PHASE: MOVING =====
+    else if (humanState.phase === 'moving') {
+        humanState.phaseTimer += deltaTime;
+        const t = Math.min(humanState.phaseTimer / humanState.moveDuration, 1);
+        const eased = smoothEase(t);
+
+        humanState.currentPos.x = humanState.startPos.x +
+            (humanState.targetPos.x - humanState.startPos.x) * eased;
+        humanState.currentPos.z = humanState.startPos.z +
+            (humanState.targetPos.z - humanState.startPos.z) * eased;
+
+        if (humanModel) {
+            humanModel.position.x = humanState.currentPos.x;
+            humanModel.position.y = humanModelYOffset; // Keep feet on ground
+            humanModel.position.z = humanState.currentPos.z;
+        }
+
+        // ===== ORGANIC WALKING ANIMATION =====
+        // Walk cycle with smooth, natural motion
+        const walkSpeed = 3.5; // Slightly slower for more natural feel
+        const walkCycle = time * walkSpeed;
+
+        // Primary motion curves (using sine for smooth oscillation)
+        const legPhase = Math.sin(walkCycle);
+        const legPhaseOffset = Math.sin(walkCycle + Math.PI); // Opposite leg
+
+        // Leg swing with asymmetric forward/back motion
+        const legSwingForward = 0.35; // Forward swing amplitude
+        const legSwingBack = 0.25; // Back swing (smaller for natural gait)
+        const leftLegSwing = legPhase > 0 ? legPhase * legSwingForward : legPhase * legSwingBack;
+        const rightLegSwing = legPhaseOffset > 0 ? legPhaseOffset * legSwingForward : legPhaseOffset * legSwingBack;
+
+        // Knee bend (calves bend more when leg swings back)
+        const leftKneeBend = Math.max(0, -legPhase) * 0.5; // Bend when swinging back
+        const rightKneeBend = Math.max(0, -legPhaseOffset) * 0.5;
+
+        // Arm swing (opposite to legs, slightly delayed)
+        const armPhase = Math.sin(walkCycle + 0.2);
+        const armPhaseOffset = Math.sin(walkCycle + Math.PI + 0.2);
+        const armSwing = 0.25;
+
+        // Forearm bend (natural arm bend while walking)
+        const forearmBend = 0.3; // Base bend
+        const leftForearmExtra = Math.max(0, armPhase) * 0.2;
+        const rightForearmExtra = Math.max(0, armPhaseOffset) * 0.2;
+
+        // Torso motion
+        const torsoTwist = Math.sin(walkCycle) * 0.04; // Subtle shoulder rotation
+        const torsoSway = Math.sin(walkCycle) * 0.02; // Side-to-side lean
+        const torsoLean = 0.03; // Slight forward lean while walking
+
+        // Head motion (counter-rotation to keep looking forward)
+        const headCounter = -torsoTwist * 0.5;
+
+        // Hip drop (weight shift)
+        const hipDrop = Math.sin(walkCycle) * 0.01;
+
+        // Apply leg rotations with knee bend
+        if (humanLeftLeg) {
+            humanLeftLeg.rotation.x = leftLegSwing;
+            humanLeftLeg.rotation.z = hipDrop * 0.3; // Slight outward rotation
+        }
+        if (humanRightLeg) {
+            humanRightLeg.rotation.x = rightLegSwing;
+            humanRightLeg.rotation.z = -hipDrop * 0.3;
+        }
+
+        // Apply calf (knee) bend
+        if (humanLeftCalf) {
+            humanLeftCalf.rotation.x = leftKneeBend;
+        }
+        if (humanRightCalf) {
+            humanRightCalf.rotation.x = rightKneeBend;
+        }
+
+        // Apply arm rotations
+        if (humanLeftArm) {
+            humanLeftArm.rotation.x = -armPhase * armSwing;
+            humanLeftArm.rotation.z = 0.08; // Slight outward angle
+        }
+        if (humanRightArm) {
+            humanRightArm.rotation.x = -armPhaseOffset * armSwing;
+            humanRightArm.rotation.z = -0.08;
+        }
+
+        // Apply forearm bend
+        if (humanLeftForearm) {
+            humanLeftForearm.rotation.x = -(forearmBend + leftForearmExtra);
+        }
+        if (humanRightForearm) {
+            humanRightForearm.rotation.x = -(forearmBend + rightForearmExtra);
+        }
+
+        // Apply torso motion
+        if (humanTorso) {
+            humanTorso.rotation.y = torsoTwist;
+            humanTorso.rotation.z = torsoSway;
+            humanTorso.rotation.x = torsoLean;
+        }
+
+        // Apply head motion (counter-rotation only, bob is handled via body)
+        if (humanHead) {
+            humanHead.rotation.y = headCounter;
+        }
+
+        // Body bob (up/down motion synced with steps)
+        // Double frequency because we bob twice per full walk cycle
+        if (humanModel) {
+            const bobPhase = Math.abs(Math.sin(walkCycle * 2));
+            const bobOffset = bobPhase * 0.012;
+            humanModel.position.y = humanModelYOffset + bobOffset;
+        }
+
+        // Update humanFigurePosition for other systems
+        humanFigurePosition.x = humanState.currentPos.x;
+        humanFigurePosition.z = humanState.currentPos.z;
+
+        if (t >= 1) {
+            humanState.phase = 'paused';
+            humanState.phaseTimer = 0;
+
+            // Reset all limbs to neutral position
+            if (humanLeftLeg) { humanLeftLeg.rotation.x = 0; humanLeftLeg.rotation.z = 0; }
+            if (humanRightLeg) { humanRightLeg.rotation.x = 0; humanRightLeg.rotation.z = 0; }
+            if (humanLeftCalf) humanLeftCalf.rotation.x = 0;
+            if (humanRightCalf) humanRightCalf.rotation.x = 0;
+            if (humanLeftArm) { humanLeftArm.rotation.x = 0; humanLeftArm.rotation.z = 0.08; }
+            if (humanRightArm) { humanRightArm.rotation.x = 0; humanRightArm.rotation.z = -0.08; }
+            if (humanLeftForearm) humanLeftForearm.rotation.x = -0.15;
+            if (humanRightForearm) humanRightForearm.rotation.x = -0.15;
+            if (humanTorso) { humanTorso.rotation.x = 0; humanTorso.rotation.y = 0; humanTorso.rotation.z = 0; }
+            if (humanHead) humanHead.rotation.y = 0;
+        }
+    }
+}
 
 function createHumanFigure() {
-    const humanGroup = new THREE.Group();
-
-    humanMaterial = new THREE.MeshStandardMaterial({
-        color: CONFIG.colors.human,
-        roughness: 0.4,
-        metalness: 0.2,
-        emissive: CONFIG.colors.human,
-        emissiveIntensity: 0.5,
-    });
-
-    // Body - use cylinder instead of capsule for compatibility
-    const bodyGeom = new THREE.CylinderGeometry(0.2, 0.2, 0.9, 16);
-    humanBody = new THREE.Mesh(bodyGeom, humanMaterial);
-    humanBody.position.y = 0.65;
-    humanBody.castShadow = true;
-    humanGroup.add(humanBody);
-
-    // Head
-    const headGeom = new THREE.SphereGeometry(0.2, 16, 16);
-    const head = new THREE.Mesh(headGeom, humanMaterial);
-    head.position.y = 1.35;
-    head.castShadow = true;
-    humanGroup.add(head);
-
-    // Arms - use cylinders
-    const armGeom = new THREE.CylinderGeometry(0.06, 0.06, 0.5, 8);
-
-    const leftArm = new THREE.Mesh(armGeom, humanMaterial);
-    leftArm.position.set(-0.3, 0.8, 0);
-    leftArm.rotation.z = 0.2;
-    humanGroup.add(leftArm);
-
-    humanArm = new THREE.Mesh(armGeom, humanMaterial);
-    humanArm.position.set(0.35, 1.0, 0);
-    humanArm.rotation.z = -1.2;
-    humanGroup.add(humanArm);
-
-    // Legs
-    const legGeom = new THREE.CylinderGeometry(0.08, 0.08, 0.4, 8);
-    const leftLeg = new THREE.Mesh(legGeom, humanMaterial);
-    leftLeg.position.set(-0.1, 0.2, 0);
-    humanGroup.add(leftLeg);
-    const rightLeg = new THREE.Mesh(legGeom, humanMaterial);
-    rightLeg.position.set(0.1, 0.2, 0);
-    humanGroup.add(rightLeg);
-
-    // Human is positioned at the edge of AI's light cone
-    // Light cone center is at x=-2, radius 3.5, so boundary is at x=1.5
-    // Human stands at the boundary
-    humanGroup.position.set(2, 0, 0);
-    humanGroup.rotation.y = -Math.PI / 5; // Facing towards AI/light
-    scene.add(humanGroup);
-
-    // Human perception area - ground circle with ~20% overlap with AI's area
-    // AI circle: center x=-2, radius 3.5 (extends to x=1.5)
-    // Human circle: center x=3.5, radius 3.5 → overlaps from x=0 to x=1.5
+    // Human perception area - ground circle
     const humanPerceptionGeom = new THREE.CircleGeometry(3.5, 32);
     const humanPerceptionMat = new THREE.MeshBasicMaterial({
         color: CONFIG.colors.human,
@@ -1467,10 +2123,496 @@ function createHumanFigure() {
     humanPerception.position.set(3.5, 0.03, 0);
     scene.add(humanPerception);
 
-    // Label - positioned above the human figure
-    createLabel('Human', new THREE.Vector3(2, 2.2, 0), '#34d399');
+    // Use procedural human figure for now (GLB loading was causing browser issues)
+    createFallbackHumanFigure();
 
-    console.log('Human figure created');
+    // Label - will be updated to follow human
+    createLabel('Human', new THREE.Vector3(3.5, 2.2, 0), '#34d399');
+
+    console.log('Human figure loading from walking_person_basic.glb...');
+}
+
+// Human limb references for walking animation
+let humanLeftLeg = null;
+let humanRightLeg = null;
+let humanLeftArm = null;
+let humanRightArm = null;
+let humanHead = null;
+let humanTorso = null;
+let humanLeftForearm = null;
+let humanRightForearm = null;
+let humanLeftCalf = null;
+let humanRightCalf = null;
+
+// Create stylized animated-film-quality human figure
+function createFallbackHumanFigure() {
+    const humanGroup = new THREE.Group();
+
+    // ===== PRECISE PROPORTIONS - Calculated for seamless connections =====
+    const scale = 0.85;
+    const headRadius = 0.12 * scale;
+    const torsoHeight = 0.35 * scale;
+    const shoulderWidth = 0.26 * scale;
+    const hipWidth = 0.16 * scale;
+    const upperArmLength = 0.16 * scale;
+    const forearmLength = 0.14 * scale;
+    const thighLength = 0.22 * scale;
+    const calfLength = 0.20 * scale;
+    const limbRadius = 0.03 * scale;
+
+    // Calculate exact Y positions for seamless alignment
+    const hipY = calfLength + thighLength;
+    const torsoBottomY = hipY;
+    const torsoTopY = torsoBottomY + torsoHeight;
+    const headCenterY = torsoTopY + headRadius * 0.9;
+
+    // ===== MATERIALS =====
+    const skinMat = new THREE.MeshStandardMaterial({
+        color: 0xc4956a,
+        roughness: 0.6,
+        metalness: 0.0,
+        emissive: 0x805030,
+        emissiveIntensity: 0.08,
+    });
+    humanMaterial = skinMat;
+
+    const hairMat = new THREE.MeshStandardMaterial({
+        color: 0x1a1a1a,
+        roughness: 0.85,
+        metalness: 0.0,
+    });
+
+    const beardMat = new THREE.MeshStandardMaterial({
+        color: 0x2a2a2a,
+        roughness: 0.9,
+        metalness: 0.0,
+        transparent: true,
+        opacity: 0.9,
+    });
+
+    const eyeWhiteMat = new THREE.MeshStandardMaterial({
+        color: 0xfefefe,
+        roughness: 0.2,
+        metalness: 0.0,
+    });
+
+    const irisMat = new THREE.MeshStandardMaterial({
+        color: 0x3d2815,
+        roughness: 0.3,
+        metalness: 0.1,
+    });
+
+    const pupilMat = new THREE.MeshBasicMaterial({
+        color: 0x050505,
+    });
+
+    const browMat = new THREE.MeshStandardMaterial({
+        color: 0x1a1a1a,
+        roughness: 0.85,
+        metalness: 0.0,
+    });
+
+    const hoodieMat = new THREE.MeshStandardMaterial({
+        color: 0x6e6e6e,
+        roughness: 0.8,
+        metalness: 0.0,
+        emissive: CONFIG.colors.human,
+        emissiveIntensity: 0.05,
+    });
+
+    const pantsMat = new THREE.MeshStandardMaterial({
+        color: 0x1a1a1a,
+        roughness: 0.75,
+        metalness: 0.0,
+        emissive: CONFIG.colors.human,
+        emissiveIntensity: 0.02,
+    });
+
+    const shoeMat = new THREE.MeshStandardMaterial({
+        color: 0xf5f5f5,
+        roughness: 0.35,
+        metalness: 0.0,
+    });
+
+    const lipMat = new THREE.MeshStandardMaterial({
+        color: 0x8a5040,
+        roughness: 0.5,
+        metalness: 0.0,
+    });
+
+    // ===== HEAD - Clean, unified shape =====
+    const headGroup = new THREE.Group();
+
+    // Main head - single clean sphere (no awkward scaling)
+    const headGeom = new THREE.SphereGeometry(headRadius, 32, 32);
+    const headMesh = new THREE.Mesh(headGeom, skinMat);
+    headMesh.castShadow = true;
+    headGroup.add(headMesh);
+
+    // Jaw/lower face - subtle extension downward
+    const jawGeom = new THREE.SphereGeometry(headRadius * 0.75, 24, 24);
+    const jawMesh = new THREE.Mesh(jawGeom, skinMat);
+    jawMesh.position.set(0, -headRadius * 0.5, headRadius * 0.1);
+    jawMesh.scale.set(0.9, 0.6, 0.8);
+    headGroup.add(jawMesh);
+
+    // Chin point
+    const chinGeom = new THREE.SphereGeometry(headRadius * 0.25, 16, 16);
+    const chinMesh = new THREE.Mesh(chinGeom, skinMat);
+    chinMesh.position.set(0, -headRadius * 0.85, headRadius * 0.15);
+    chinMesh.scale.set(0.8, 0.5, 0.6);
+    headGroup.add(chinMesh);
+
+    // ===== HAIR - Pompadour/quiff style (NOT a helmet) =====
+    // Only cover the TOP of the head - short on sides like a fade
+
+    // Top hair - flat cap on top only (not wrapping down)
+    const topHairGeom = new THREE.SphereGeometry(headRadius * 1.05, 32, 32, 0, Math.PI * 2, 0, Math.PI * 0.35);
+    const topHair = new THREE.Mesh(topHairGeom, hairMat);
+    topHair.position.set(0, headRadius * 0.15, 0);
+    headGroup.add(topHair);
+
+    // Pompadour - the signature swept-up front volume
+    const pompMainGeom = new THREE.SphereGeometry(headRadius * 0.7, 24, 24);
+    const pompMain = new THREE.Mesh(pompMainGeom, hairMat);
+    pompMain.position.set(0, headRadius * 0.75, headRadius * 0.4);
+    pompMain.scale.set(1.4, 0.65, 0.8);
+    pompMain.rotation.x = -0.35;
+    headGroup.add(pompMain);
+
+    // Pompadour top crest
+    const pompCrestGeom = new THREE.SphereGeometry(headRadius * 0.5, 20, 20);
+    const pompCrest = new THREE.Mesh(pompCrestGeom, hairMat);
+    pompCrest.position.set(0, headRadius * 1.0, headRadius * 0.2);
+    pompCrest.scale.set(1.2, 0.5, 0.7);
+    pompCrest.rotation.x = -0.2;
+    headGroup.add(pompCrest);
+
+    // Side fade - very thin layer on sides
+    [-1, 1].forEach(side => {
+        const fadeGeom = new THREE.SphereGeometry(headRadius * 0.3, 16, 16);
+        const fade = new THREE.Mesh(fadeGeom, hairMat);
+        fade.position.set(side * headRadius * 0.85, headRadius * 0.35, -headRadius * 0.1);
+        fade.scale.set(0.3, 0.5, 0.6);
+        headGroup.add(fade);
+    });
+
+    // Back of head hair
+    const backHairGeom = new THREE.SphereGeometry(headRadius * 0.8, 20, 20);
+    const backHair = new THREE.Mesh(backHairGeom, hairMat);
+    backHair.position.set(0, headRadius * 0.4, -headRadius * 0.35);
+    backHair.scale.set(1.0, 0.6, 0.5);
+    headGroup.add(backHair);
+
+    // ===== FACE - LARGE, clearly visible features =====
+    const faceZ = headRadius * 0.95; // Features protrude from face
+
+    // EYES - Much larger
+    const eyeSpacing = headRadius * 0.32;
+    const eyeY = headRadius * 0.05;
+
+    [-1, 1].forEach(side => {
+        // Eye white - BIG
+        const eyeWhiteGeom = new THREE.SphereGeometry(headRadius * 0.18, 24, 24);
+        const eyeWhite = new THREE.Mesh(eyeWhiteGeom, eyeWhiteMat);
+        eyeWhite.position.set(side * eyeSpacing, eyeY, faceZ);
+        eyeWhite.scale.set(1.1, 0.8, 0.55);
+        headGroup.add(eyeWhite);
+
+        // Iris - large brown
+        const irisGeom = new THREE.SphereGeometry(headRadius * 0.11, 20, 20);
+        const iris = new THREE.Mesh(irisGeom, irisMat);
+        iris.position.set(side * eyeSpacing, eyeY, faceZ + headRadius * 0.06);
+        iris.scale.set(1, 1, 0.45);
+        headGroup.add(iris);
+
+        // Pupil - prominent black
+        const pupilGeom = new THREE.SphereGeometry(headRadius * 0.055, 16, 16);
+        const pupil = new THREE.Mesh(pupilGeom, pupilMat);
+        pupil.position.set(side * eyeSpacing, eyeY, faceZ + headRadius * 0.085);
+        headGroup.add(pupil);
+
+        // Highlight - visible sparkle
+        const hlGeom = new THREE.SphereGeometry(headRadius * 0.025, 10, 10);
+        const hlMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+        const hl = new THREE.Mesh(hlGeom, hlMat);
+        hl.position.set(side * eyeSpacing + side * headRadius * 0.04, eyeY + headRadius * 0.03, faceZ + headRadius * 0.1);
+        headGroup.add(hl);
+
+        // Eyebrow - thick and visible
+        const browGeom = new THREE.SphereGeometry(headRadius * 0.14, 14, 14);
+        const brow = new THREE.Mesh(browGeom, browMat);
+        brow.position.set(side * eyeSpacing, eyeY + headRadius * 0.22, faceZ - headRadius * 0.03);
+        brow.scale.set(1.3, 0.28, 0.45);
+        brow.rotation.z = side * 0.12;
+        headGroup.add(brow);
+    });
+
+    // NOSE - larger, more prominent
+    const noseGeom = new THREE.SphereGeometry(headRadius * 0.14, 18, 18);
+    const nose = new THREE.Mesh(noseGeom, skinMat);
+    nose.position.set(0, -headRadius * 0.12, faceZ + headRadius * 0.08);
+    nose.scale.set(0.65, 0.75, 0.55);
+    headGroup.add(nose);
+
+    // Nose bridge
+    const bridgeGeom = new THREE.CylinderGeometry(headRadius * 0.04, headRadius * 0.05, headRadius * 0.18, 10);
+    const bridge = new THREE.Mesh(bridgeGeom, skinMat);
+    bridge.position.set(0, headRadius * 0.05, faceZ);
+    bridge.rotation.x = 0.35;
+    headGroup.add(bridge);
+
+    // MOUTH - Larger, more defined
+    // Upper lip
+    const upperLipGeom = new THREE.TorusGeometry(headRadius * 0.1, headRadius * 0.025, 10, 20, Math.PI);
+    const upperLip = new THREE.Mesh(upperLipGeom, lipMat);
+    upperLip.position.set(0, -headRadius * 0.38, faceZ);
+    upperLip.rotation.z = Math.PI;
+    headGroup.add(upperLip);
+
+    // Lower lip
+    const lowerLipGeom = new THREE.TorusGeometry(headRadius * 0.08, headRadius * 0.028, 10, 20, Math.PI);
+    const lowerLip = new THREE.Mesh(lowerLipGeom, lipMat);
+    lowerLip.position.set(0, -headRadius * 0.48, faceZ - headRadius * 0.02);
+    headGroup.add(lowerLip);
+
+    // ===== BEARD - Full stubble coverage =====
+    // Mustache - visible above lip
+    const mustacheGeom = new THREE.SphereGeometry(headRadius * 0.14, 14, 14);
+    const mustache = new THREE.Mesh(mustacheGeom, beardMat);
+    mustache.position.set(0, -headRadius * 0.28, faceZ + headRadius * 0.02);
+    mustache.scale.set(1.4, 0.35, 0.45);
+    headGroup.add(mustache);
+
+    // Soul patch - under lower lip
+    const soulGeom = new THREE.SphereGeometry(headRadius * 0.08, 12, 12);
+    const soul = new THREE.Mesh(soulGeom, beardMat);
+    soul.position.set(0, -headRadius * 0.55, faceZ - headRadius * 0.05);
+    soul.scale.set(1.0, 0.7, 0.45);
+    headGroup.add(soul);
+
+    // Jaw beard - connected coverage along jawline
+    [-1, 1].forEach(side => {
+        // Cheek/sideburn area
+        const sideGeom = new THREE.SphereGeometry(headRadius * 0.22, 14, 14);
+        const sideBeard = new THREE.Mesh(sideGeom, beardMat);
+        sideBeard.position.set(side * headRadius * 0.55, -headRadius * 0.3, headRadius * 0.55);
+        sideBeard.scale.set(0.45, 0.65, 0.5);
+        headGroup.add(sideBeard);
+
+        // Mid jaw
+        const midJawGeom = new THREE.SphereGeometry(headRadius * 0.24, 14, 14);
+        const midJaw = new THREE.Mesh(midJawGeom, beardMat);
+        midJaw.position.set(side * headRadius * 0.45, -headRadius * 0.5, headRadius * 0.5);
+        midJaw.scale.set(0.5, 0.6, 0.5);
+        headGroup.add(midJaw);
+
+        // Lower jaw connecting to chin
+        const lowerJawGeom = new THREE.SphereGeometry(headRadius * 0.2, 14, 14);
+        const lowerJaw = new THREE.Mesh(lowerJawGeom, beardMat);
+        lowerJaw.position.set(side * headRadius * 0.28, -headRadius * 0.68, headRadius * 0.4);
+        lowerJaw.scale.set(0.55, 0.5, 0.5);
+        headGroup.add(lowerJaw);
+    });
+
+    // Chin beard - goatee
+    const chinBeardGeom = new THREE.SphereGeometry(headRadius * 0.25, 16, 16);
+    const chinBeard = new THREE.Mesh(chinBeardGeom, beardMat);
+    chinBeard.position.set(0, -headRadius * 0.72, headRadius * 0.32);
+    chinBeard.scale.set(0.9, 0.55, 0.6);
+    headGroup.add(chinBeard);
+
+    // EARS
+    [-1, 1].forEach(side => {
+        const earGeom = new THREE.SphereGeometry(headRadius * 0.12, 10, 10);
+        const ear = new THREE.Mesh(earGeom, skinMat);
+        ear.position.set(side * headRadius * 0.95, headRadius * 0.05, 0);
+        ear.scale.set(0.3, 0.6, 0.4);
+        headGroup.add(ear);
+    });
+
+    // Position head
+    headGroup.position.y = headCenterY;
+    humanGroup.add(headGroup);
+    humanHead = headGroup;
+
+    // ===== NECK - Connects head to torso seamlessly =====
+    const neckGeom = new THREE.CylinderGeometry(headRadius * 0.35, headRadius * 0.45, headRadius * 0.5, 16);
+    const neckMesh = new THREE.Mesh(neckGeom, skinMat);
+    neckMesh.position.y = torsoTopY + headRadius * 0.1;
+    humanGroup.add(neckMesh);
+
+    // ===== TORSO - Clean unified shape =====
+    const torsoGroup = new THREE.Group();
+
+    // Main torso body - single clean cylinder with spherical caps
+    const mainTorsoGeom = new THREE.CylinderGeometry(shoulderWidth * 0.45, shoulderWidth * 0.38, torsoHeight * 0.85, 20);
+    const mainTorso = new THREE.Mesh(mainTorsoGeom, hoodieMat);
+    mainTorso.position.y = torsoHeight * 0.45;
+    mainTorso.castShadow = true;
+    torsoGroup.add(mainTorso);
+
+    // Shoulders - smooth cap
+    const shoulderCapGeom = new THREE.SphereGeometry(shoulderWidth * 0.48, 20, 20);
+    const shoulderCap = new THREE.Mesh(shoulderCapGeom, hoodieMat);
+    shoulderCap.position.y = torsoHeight * 0.85;
+    shoulderCap.scale.set(1.0, 0.35, 0.7);
+    torsoGroup.add(shoulderCap);
+
+    // Hip area - smooth transition
+    const hipCapGeom = new THREE.SphereGeometry(shoulderWidth * 0.4, 16, 16);
+    const hipCap = new THREE.Mesh(hipCapGeom, hoodieMat);
+    hipCap.position.y = torsoHeight * 0.08;
+    hipCap.scale.set(0.95, 0.35, 0.7);
+    torsoGroup.add(hipCap);
+
+    // Collar
+    const collarGeom = new THREE.TorusGeometry(headRadius * 0.38, headRadius * 0.05, 8, 20);
+    const collar = new THREE.Mesh(collarGeom, hoodieMat);
+    collar.position.y = torsoHeight;
+    collar.rotation.x = Math.PI / 2;
+    torsoGroup.add(collar);
+
+    torsoGroup.position.y = torsoBottomY;
+    humanGroup.add(torsoGroup);
+    humanTorso = torsoGroup;
+    humanBody = torsoGroup;
+
+    // ===== ARMS - Clean, connected =====
+    const createArm = (side) => {
+        const armGroup = new THREE.Group();
+
+        // Shoulder ball - blends with torso
+        const shoulderGeom = new THREE.SphereGeometry(limbRadius * 1.6, 14, 14);
+        const shoulder = new THREE.Mesh(shoulderGeom, hoodieMat);
+        armGroup.add(shoulder);
+
+        // Upper arm
+        const upperArmGeom = new THREE.CylinderGeometry(limbRadius * 1.3, limbRadius * 1.1, upperArmLength, 14);
+        const upperArm = new THREE.Mesh(upperArmGeom, hoodieMat);
+        upperArm.position.y = -upperArmLength / 2;
+        upperArm.castShadow = true;
+        armGroup.add(upperArm);
+
+        // Elbow - smooth joint
+        const elbowGeom = new THREE.SphereGeometry(limbRadius * 1.1, 12, 12);
+        const elbow = new THREE.Mesh(elbowGeom, hoodieMat);
+        elbow.position.y = -upperArmLength;
+        armGroup.add(elbow);
+
+        // Forearm group
+        const forearmGroup = new THREE.Group();
+        forearmGroup.position.y = -upperArmLength;
+
+        const forearmGeom = new THREE.CylinderGeometry(limbRadius * 1.0, limbRadius * 0.85, forearmLength, 14);
+        const forearm = new THREE.Mesh(forearmGeom, skinMat);
+        forearm.position.y = -forearmLength / 2;
+        forearm.castShadow = true;
+        forearmGroup.add(forearm);
+
+        // Hand - refined shape
+        const handGeom = new THREE.SphereGeometry(limbRadius * 1.2, 14, 14);
+        const hand = new THREE.Mesh(handGeom, skinMat);
+        hand.position.y = -forearmLength - limbRadius * 0.5;
+        hand.scale.set(0.8, 0.9, 0.45);
+        forearmGroup.add(hand);
+
+        armGroup.add(forearmGroup);
+
+        // Position at shoulder height
+        armGroup.position.set(
+            side * (shoulderWidth / 2 + limbRadius * 0.3),
+            torsoBottomY + torsoHeight * 0.85,
+            0
+        );
+
+        return { armGroup, forearmGroup };
+    };
+
+    const leftArmData = createArm(-1);
+    humanLeftArm = leftArmData.armGroup;
+    humanLeftForearm = leftArmData.forearmGroup;
+    humanGroup.add(humanLeftArm);
+
+    const rightArmData = createArm(1);
+    humanRightArm = rightArmData.armGroup;
+    humanRightForearm = rightArmData.forearmGroup;
+    humanGroup.add(humanRightArm);
+
+    // ===== LEGS - Clean, connected =====
+    const createLeg = (side) => {
+        const legGroup = new THREE.Group();
+
+        // Hip ball - connects to torso
+        const hipBallGeom = new THREE.SphereGeometry(limbRadius * 1.6, 14, 14);
+        const hipBall = new THREE.Mesh(hipBallGeom, pantsMat);
+        legGroup.add(hipBall);
+
+        // Thigh
+        const thighGeom = new THREE.CylinderGeometry(limbRadius * 1.4, limbRadius * 1.25, thighLength, 14);
+        const thigh = new THREE.Mesh(thighGeom, pantsMat);
+        thigh.position.y = -thighLength / 2;
+        thigh.castShadow = true;
+        legGroup.add(thigh);
+
+        // Knee - smooth joint
+        const kneeJointGeom = new THREE.SphereGeometry(limbRadius * 1.2, 12, 12);
+        const kneeJoint = new THREE.Mesh(kneeJointGeom, pantsMat);
+        kneeJoint.position.y = -thighLength;
+        legGroup.add(kneeJoint);
+
+        // Calf group
+        const calfGroup = new THREE.Group();
+        calfGroup.position.y = -thighLength;
+
+        const calfGeom = new THREE.CylinderGeometry(limbRadius * 1.15, limbRadius * 0.9, calfLength, 14);
+        const calf = new THREE.Mesh(calfGeom, pantsMat);
+        calf.position.y = -calfLength / 2;
+        calf.castShadow = true;
+        calfGroup.add(calf);
+
+        // Ankle
+        const ankleGeom = new THREE.SphereGeometry(limbRadius * 0.85, 10, 10);
+        const ankle = new THREE.Mesh(ankleGeom, pantsMat);
+        ankle.position.y = -calfLength;
+        calfGroup.add(ankle);
+
+        // Sneaker - clean rounded shape
+        const shoeGeom = new THREE.SphereGeometry(limbRadius * 2.0, 14, 14);
+        const shoe = new THREE.Mesh(shoeGeom, shoeMat);
+        shoe.position.set(0, -calfLength - limbRadius * 0.4, limbRadius * 0.9);
+        shoe.scale.set(0.7, 0.35, 1.2);
+        shoe.castShadow = true;
+        calfGroup.add(shoe);
+
+        legGroup.add(calfGroup);
+
+        // Position at hip height
+        legGroup.position.set(
+            side * hipWidth / 2,
+            hipY,
+            0
+        );
+
+        return { legGroup, calfGroup };
+    };
+
+    const leftLegData = createLeg(-1);
+    humanLeftLeg = leftLegData.legGroup;
+    humanLeftCalf = leftLegData.calfGroup;
+    humanGroup.add(humanLeftLeg);
+
+    const rightLegData = createLeg(1);
+    humanRightLeg = rightLegData.legGroup;
+    humanRightCalf = rightLegData.calfGroup;
+    humanGroup.add(humanRightLeg);
+
+    // Position human
+    humanGroup.position.set(humanState.currentPos.x, 0, humanState.currentPos.z);
+    scene.add(humanGroup);
+    humanModel = humanGroup;
+
+    console.log('Pixar-quality human figure created');
 }
 
 // ============================================================
@@ -2129,23 +3271,70 @@ function animate() {
         lightCone.material.opacity = 0.06 + Math.sin(time * 3) * 0.02;
     }
 
-    // AI eye scan
-    if (aiEye) {
-        aiEye.position.y = 1.35 + Math.sin(time * 2) * 0.05;
+    // ===== AI ROBOT ANIMATIONS =====
+
+    // Update robot patrol movement
+    updateAIRobotMovement(0.016);
+
+    // Robot bobbing animation (gentle hover effect)
+    if (aiRobot) {
+        const bobAmount = Math.sin(time * 0.5) * 0.02;
+        aiRobot.position.y = bobAmount;
+
+        // Subtle tilt while moving
+        if (aiRobotState.phase === 'moving') {
+            aiRobot.rotation.x = Math.sin(time * 3) * 0.02;
+            aiRobot.rotation.z = Math.cos(time * 2.5) * 0.015;
+        } else {
+            aiRobot.rotation.x *= 0.95;
+            aiRobot.rotation.z *= 0.95;
+        }
     }
 
-    // Human arm reach
+    // Inner head glow pulse (gradient sphere)
+    if (aiInnerHeadMaterial) {
+        aiInnerHeadMaterial.emissiveIntensity = 0.35 + Math.sin(time * 0.6) * 0.15;
+    }
+
+    // Eye blink (periodic)
+    if (aiEyeMaterial) {
+        const blinkCycle = (time * 0.15) % 1;
+        if (blinkCycle > 0.95) {
+            aiEyeMaterial.opacity = 0.3;
+        } else {
+            aiEyeMaterial.opacity = 0.85;
+        }
+    }
+
+    // Update AI label position to follow robot
+    if (aiRobot) {
+        const aiLabel = labelElements.find(l => l.isFixed && l.element?.textContent === 'AI');
+        if (aiLabel) {
+            aiLabel.position.set(aiRobot.position.x, 1.5, aiRobot.position.z);
+        }
+    }
+
+    // ===== HUMAN ANIMATIONS =====
+
+    // Update human patrol movement
+    updateHumanMovement(0.016);
+
+    // Update Human label position to follow human model
+    if (humanModel) {
+        const humanLabel = labelElements.find(l => l.isFixed && l.element?.textContent === 'Human');
+        if (humanLabel) {
+            humanLabel.position.set(humanModel.position.x, 2.2, humanModel.position.z);
+        }
+    }
+
+    // Fallback animations (only used if GLB fails to load)
     if (humanArm) {
         humanArm.rotation.z = -1.2 + Math.sin(time * 0.5) * 0.1;
     }
-
-    // Human heartbeat glow (emissive pulsing ~60bpm)
     if (humanMaterial) {
         const heartbeat = 0.4 + Math.sin(time * 1.0) * 0.15;
         humanMaterial.emissiveIntensity = heartbeat;
     }
-
-    // Human breathing animation (subtle scale on body)
     if (humanBody) {
         const breathScale = 1 + Math.sin(time * 0.4) * 0.015;
         humanBody.scale.y = breathScale;
