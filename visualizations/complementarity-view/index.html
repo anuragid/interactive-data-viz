@@ -34,6 +34,7 @@
             --color-human: #34d399;
             --color-human-dim: rgba(52, 211, 153, 0.2);
             --color-unobservable: #f59e0b;
+            --color-observable: #22d3ee;
             --color-text: #f5f5f4;
             --color-text-muted: rgba(245, 245, 244, 0.6);
             --color-text-dim: rgba(245, 245, 244, 0.35);
@@ -180,6 +181,43 @@
             opacity: 0.8;
         }
 
+        /* Observable Labels - precise and digital */
+        .observable-label {
+            position: fixed;
+            z-index: 50;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.15rem;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            opacity: 0.6;
+            transition: opacity 0.25s ease, transform 0.25s ease;
+        }
+
+        .observable-label.hovered {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1.05);
+        }
+
+        .observable-label .symbol {
+            font-family: var(--font-display);
+            font-size: 0.9rem;
+            color: var(--color-observable);
+            text-shadow: 0 0 8px var(--color-observable);
+        }
+
+        .observable-label .title {
+            font-family: var(--font-body);
+            font-size: 0.55rem;
+            font-weight: 500;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: var(--color-observable);
+            white-space: nowrap;
+            opacity: 0.8;
+        }
+
         /* Tooltip */
         .tooltip {
             position: fixed;
@@ -214,6 +252,15 @@
             font-weight: 300;
             line-height: 1.6;
             color: var(--color-text-muted);
+        }
+
+        /* Observable tooltip variant */
+        .tooltip--observable {
+            border-color: rgba(34, 211, 238, 0.3);
+        }
+
+        .tooltip--observable .tooltip__title {
+            color: var(--color-observable);
         }
 
         /* Legend - Bottom Left, Vertical */
@@ -270,6 +317,11 @@
         .legend-dot--unobservable {
             background: var(--color-unobservable);
             box-shadow: 0 0 6px var(--color-unobservable);
+        }
+
+        .legend-dot--observable {
+            background: var(--color-observable);
+            box-shadow: 0 0 6px var(--color-observable);
         }
 
         /* Controls Hint - Bottom Center */
@@ -408,6 +460,26 @@
         .detail-panel__nav-btn:hover {
             background: rgba(245, 158, 11, 0.15);
             border-color: rgba(245, 158, 11, 0.5);
+        }
+
+        /* Observable variant of detail panel */
+        .detail-panel--observable .detail-panel__symbol {
+            color: var(--color-observable);
+            text-shadow: 0 0 20px var(--color-observable);
+        }
+
+        .detail-panel--observable .detail-panel__title {
+            color: var(--color-observable);
+        }
+
+        .detail-panel--observable .detail-panel__nav-btn {
+            border-color: rgba(34, 211, 238, 0.3);
+            color: var(--color-observable);
+        }
+
+        .detail-panel--observable .detail-panel__nav-btn:hover {
+            background: rgba(34, 211, 238, 0.15);
+            border-color: rgba(34, 211, 238, 0.5);
         }
 
         /* Unified View Controls - Top Center, Horizontal */
@@ -704,6 +776,14 @@
                 font-size: 0.85rem;
             }
 
+            .observable-label .title {
+                font-size: 0.6rem;
+            }
+
+            .observable-label .symbol {
+                font-size: 0.85rem;
+            }
+
             .scene-label {
                 font-size: 0.6rem;
             }
@@ -789,6 +869,10 @@
             .unobservable-label .title {
                 display: none;
             }
+
+            .observable-label .title {
+                display: none;
+            }
         }
     </style>
 </head>
@@ -833,6 +917,10 @@
         <div class="legend-item">
             <span class="legend-dot legend-dot--unobservable"></span>
             <span>Unobservables</span>
+        </div>
+        <div class="legend-item">
+            <span class="legend-dot legend-dot--observable"></span>
+            <span>Observables</span>
         </div>
     </div>
 

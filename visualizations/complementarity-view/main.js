@@ -16,7 +16,8 @@ const CONFIG = {
         lampGlow: 0xd8e8ff,     // LED blue/white glow
         ai: 0x22d3ee,
         human: 0x34d399,
-        unobservable: 0xf59e0b, // Amber - now distinct from lamp
+        unobservable: 0xf59e0b, // Amber - human's tacit knowledge
+        observable: 0x22d3ee,   // Cyan - AI's observable domain
     },
 
     // Unobservables positioned in human's perception area (x=0 to x=7, centered at x=3.5)
@@ -47,6 +48,44 @@ const CONFIG = {
         { id: 'silence', symbol: '○', title: "What's Not Said",
           description: 'The pause that speaks volumes.',
           position: { x: 6.5, z: -0.5 } },
+    ],
+
+    // Observables positioned WITHIN the light cone (radius 3.5 from center at -2, 0)
+    // Arranged in a semi-circular arc around the back edge of the cone
+    // All positions verified to be within radius 3.0 from cone center
+    observables: [
+        { id: 'metrics', symbol: '◉', title: 'Metrics',
+          short: 'The numbered reality',
+          description: 'Scores, percentages, KPIs. AI excels at processing quantified measurements—but a metric captures what was measured, not what matters.',
+          position: { x: -3.4, z: -2.4 } },
+        { id: 'records', symbol: '◆', title: 'Records',
+          short: 'The documented trail',
+          description: 'Documents, emails, transcripts. AI searches what was written down—but the record captures words, not the meaning they carried.',
+          position: { x: -4.2, z: 1.8 } },
+        { id: 'patterns', symbol: '⬡', title: 'Patterns',
+          short: 'The statistical shape',
+          description: 'Correlations, trends, clusters. AI finds patterns humans never could—but patterns describe what happens, not why.',
+          position: { x: -4.7, z: -1 } },
+        { id: 'categories', symbol: '▣', title: 'Categories',
+          short: 'The organized structure',
+          description: 'Labels, taxonomies, classifications. AI works within structured ontologies—but categories force reality into boxes.',
+          position: { x: -3.4, z: 2.4 } },
+        { id: 'timestamps', symbol: '◐', title: 'Timestamps',
+          short: 'The recorded moment',
+          description: 'Dates, durations, sequences. AI knows when things happened—but timestamps mark time without sensing rhythm.',
+          position: { x: -5, z: 0 } },
+        { id: 'transactions', symbol: '⟐', title: 'Transactions',
+          short: 'The logged exchange',
+          description: 'Purchases, clicks, recorded events. AI sees the exchange—the relationship that made it possible remains invisible.',
+          position: { x: -4.2, z: -1.8 } },
+        { id: 'signals', symbol: '◇', title: 'Explicit Signals',
+          short: 'The stated intent',
+          description: 'Direct statements, formal decisions. AI processes what was clearly said—but explicit is only the surface of meaning.',
+          position: { x: -4.7, z: 1 } },
+        { id: 'keywords', symbol: '○', title: 'Keywords',
+          short: 'The searchable term',
+          description: 'Indexed vocabulary, tagged content. AI can find any word—but words mean different things in different contexts.',
+          position: { x: -2.5, z: -2.5 } },
     ],
 };
 
@@ -134,7 +173,8 @@ const PerformanceMode = {
 
 const AudioManager = {
     context: null,
-    masterGain: null,
+    masterGain: null,    // For ambient soundscape (fades in/out)
+    uiGain: null,        // For UI sounds (always audible when enabled)
     ambientNodes: [],
     lfoNode: null,
     enabled: false,
@@ -147,9 +187,17 @@ const AudioManager = {
         try {
             const AudioContextClass = window.AudioContext || window.webkitAudioContext;
             this.context = new AudioContextClass();
+
+            // Master gain for ambient soundscape (controlled by fade)
             this.masterGain = this.context.createGain();
             this.masterGain.gain.value = 0;
             this.masterGain.connect(this.context.destination);
+
+            // Separate UI gain for interaction sounds (bypasses ambient fade)
+            this.uiGain = this.context.createGain();
+            this.uiGain.gain.value = 0.5; // Always audible at 50%
+            this.uiGain.connect(this.context.destination);
+
             this.initialized = true;
             console.log('Audio Manager initialized, state:', this.context.state);
 
@@ -210,20 +258,27 @@ const AudioManager = {
             // Create ambient soundscape after context is running
             this.createAmbientSoundscape();
 
-            // Fade in
+            // Fade in ambient
             this.masterGain.gain.cancelScheduledValues(this.context.currentTime);
             this.masterGain.gain.setValueAtTime(this.masterGain.gain.value, this.context.currentTime);
             this.masterGain.gain.linearRampToValueAtTime(0.12, this.context.currentTime + 2);
-        } else {
-            // Fade out
-            this.masterGain.gain.cancelScheduledValues(this.context.currentTime);
-            this.masterGain.gain.setValueAtTime(this.masterGain.gain.value, this.context.currentTime);
-            this.masterGain.gain.linearRampToValueAtTime(0, this.context.currentTime + 0.5);
 
-            // Stop all nodes after fade
-            setTimeout(() => {
-                this.stopAmbientSoundscape();
-            }, 600);
+            // Enable UI sounds
+            if (this.uiGain) {
+                this.uiGain.gain.setValueAtTime(0.5, this.context.currentTime);
+            }
+        } else {
+            // Immediately mute and stop to ensure no sound plays
+            this.masterGain.gain.cancelScheduledValues(this.context.currentTime);
+            this.masterGain.gain.setValueAtTime(0, this.context.currentTime);
+
+            // Also mute UI sounds
+            if (this.uiGain) {
+                this.uiGain.gain.setValueAtTime(0, this.context.currentTime);
+            }
+
+            // Stop all nodes immediately
+            this.stopAmbientSoundscape();
         }
     },
 
@@ -358,7 +413,9 @@ const AudioManager = {
 
     // Play hover sound for an orb
     playHoverSound(orbIndex) {
-        if (!this.enabled || !this.context) return;
+        if (!this.enabled || !this.context || !this.uiGain) return;
+
+        console.log('Playing hover sound for orb:', orbIndex);
 
         // Create a short ethereal tone with harmonics
         const baseFreq = 220 + orbIndex * 40;
@@ -375,15 +432,15 @@ const AudioManager = {
         filter.type = 'lowpass';
         filter.frequency.value = 2000;
 
-        // Envelope
+        // Envelope - UI sounds go through uiGain (bypasses ambient fade)
         gain.gain.value = 0;
         gain.gain.setValueAtTime(0, this.context.currentTime);
-        gain.gain.linearRampToValueAtTime(0.06, this.context.currentTime + 0.08);
+        gain.gain.linearRampToValueAtTime(0.2, this.context.currentTime + 0.08);
         gain.gain.exponentialRampToValueAtTime(0.001, this.context.currentTime + 0.6);
 
         osc.connect(filter);
         filter.connect(gain);
-        gain.connect(this.masterGain);
+        gain.connect(this.uiGain);  // Route through UI gain, not masterGain
         osc.start();
         osc.stop(this.context.currentTime + 0.6);
 
@@ -394,17 +451,19 @@ const AudioManager = {
         osc2.frequency.value = baseFreq * 2;
         gain2.gain.value = 0;
         gain2.gain.setValueAtTime(0, this.context.currentTime);
-        gain2.gain.linearRampToValueAtTime(0.02, this.context.currentTime + 0.08);
+        gain2.gain.linearRampToValueAtTime(0.08, this.context.currentTime + 0.08);
         gain2.gain.exponentialRampToValueAtTime(0.001, this.context.currentTime + 0.4);
         osc2.connect(gain2);
-        gain2.connect(this.masterGain);
+        gain2.connect(this.uiGain);  // Route through UI gain
         osc2.start();
         osc2.stop(this.context.currentTime + 0.4);
     },
 
     // Play focus/zoom-in sound
     playFocusSound() {
-        if (!this.enabled || !this.context) return;
+        if (!this.enabled || !this.context || !this.uiGain) return;
+
+        console.log('Playing focus sound');
 
         // Rising ethereal sweep
         const osc = this.context.createOscillator();
@@ -419,15 +478,16 @@ const AudioManager = {
         filter.frequency.setValueAtTime(300, this.context.currentTime);
         filter.frequency.exponentialRampToValueAtTime(1500, this.context.currentTime + 0.8);
 
+        // UI sounds go through uiGain (bypasses ambient fade)
         gain.gain.value = 0;
         gain.gain.setValueAtTime(0, this.context.currentTime);
-        gain.gain.linearRampToValueAtTime(0.08, this.context.currentTime + 0.15);
-        gain.gain.linearRampToValueAtTime(0.05, this.context.currentTime + 0.5);
+        gain.gain.linearRampToValueAtTime(0.25, this.context.currentTime + 0.15);
+        gain.gain.linearRampToValueAtTime(0.15, this.context.currentTime + 0.5);
         gain.gain.exponentialRampToValueAtTime(0.001, this.context.currentTime + 1.2);
 
         osc.connect(filter);
         filter.connect(gain);
-        gain.connect(this.masterGain);
+        gain.connect(this.uiGain);  // Route through UI gain
         osc.start();
         osc.stop(this.context.currentTime + 1.2);
 
@@ -439,12 +499,59 @@ const AudioManager = {
         osc2.frequency.exponentialRampToValueAtTime(800, this.context.currentTime + 0.8);
         gain2.gain.value = 0;
         gain2.gain.setValueAtTime(0, this.context.currentTime + 0.1);
-        gain2.gain.linearRampToValueAtTime(0.03, this.context.currentTime + 0.3);
+        gain2.gain.linearRampToValueAtTime(0.1, this.context.currentTime + 0.3);
         gain2.gain.exponentialRampToValueAtTime(0.001, this.context.currentTime + 1.0);
         osc2.connect(gain2);
-        gain2.connect(this.masterGain);
+        gain2.connect(this.uiGain);  // Route through UI gain
         osc2.start();
         osc2.stop(this.context.currentTime + 1.0);
+    },
+
+    // Play exit/zoom-out sound (descending sweep)
+    playExitSound() {
+        if (!this.enabled || !this.context || !this.uiGain) return;
+
+        console.log('Playing exit sound');
+
+        // Descending ethereal sweep (opposite of focus)
+        const osc = this.context.createOscillator();
+        const gain = this.context.createGain();
+        const filter = this.context.createBiquadFilter();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(400, this.context.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(150, this.context.currentTime + 0.6);
+
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(1500, this.context.currentTime);
+        filter.frequency.exponentialRampToValueAtTime(300, this.context.currentTime + 0.6);
+
+        // UI sounds go through uiGain (bypasses ambient fade)
+        gain.gain.value = 0;
+        gain.gain.setValueAtTime(0, this.context.currentTime);
+        gain.gain.linearRampToValueAtTime(0.2, this.context.currentTime + 0.1);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.context.currentTime + 0.8);
+
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.uiGain);  // Route through UI gain
+        osc.start();
+        osc.stop(this.context.currentTime + 0.8);
+
+        // Add subtle descending harmonic
+        const osc2 = this.context.createOscillator();
+        const gain2 = this.context.createGain();
+        osc2.type = 'sine';
+        osc2.frequency.setValueAtTime(800, this.context.currentTime);
+        osc2.frequency.exponentialRampToValueAtTime(300, this.context.currentTime + 0.5);
+        gain2.gain.value = 0;
+        gain2.gain.setValueAtTime(0, this.context.currentTime);
+        gain2.gain.linearRampToValueAtTime(0.08, this.context.currentTime + 0.1);
+        gain2.gain.exponentialRampToValueAtTime(0.001, this.context.currentTime + 0.6);
+        osc2.connect(gain2);
+        gain2.connect(this.uiGain);  // Route through UI gain
+        osc2.start();
+        osc2.stop(this.context.currentTime + 0.6);
     }
 };
 
@@ -458,6 +565,9 @@ const StateManager = {
 
     // Currently focused unobservable (null or orb id)
     focusedOrb: null,
+
+    // Currently focused observable (null or orb id)
+    focusedObservable: null,
 
     // Camera state
     currentPreset: 'overview',
@@ -502,6 +612,14 @@ const StateManager = {
         if (this.focusedOrb !== orbId) {
             this.focusedOrb = orbId;
             this.notify('focusedOrb', orbId);
+        }
+    },
+
+    // Set focused observable with notification
+    setFocusedObservable(orbId) {
+        if (this.focusedObservable !== orbId) {
+            this.focusedObservable = orbId;
+            this.notify('focusedObservable', orbId);
         }
     },
 
@@ -578,74 +696,67 @@ function setViewMode(mode) {
 function applyViewMode(mode) {
     if (typeof gsap === 'undefined') return;
 
-    // Phase 1: ALL transitions go dark first (like AI view)
-    // This happens during camera movement
+    // Determine visibility based on mode
+    const showUnobservables = mode !== 'ai-view';
+    const showObservables = mode !== 'human-view';
+
+    // Phase 1: Transition effects during camera movement
     if (scene.fog) {
         gsap.to(scene.fog, { near: 8, far: 20, duration: 0.5 });
     }
     if (lightCone) {
         gsap.to(lightCone.material, { opacity: 0.25, duration: 0.5 });
     }
-    // Shrink orbs during transition
-    unobservableObjects.forEach(group => {
-        gsap.to(group.scale, { x: 0, y: 0, z: 0, duration: 0.4, ease: 'power2.in' });
-    });
+
+    // Hide labels during transition
     document.querySelectorAll('.unobservable-label').forEach(el => {
         el.style.opacity = '0';
     });
+    document.querySelectorAll('.observable-label').forEach(el => {
+        el.style.opacity = '0';
+    });
 
-    // Phase 2: After dark transition, apply target state
-    // Timed to happen as camera arrives
+    // Phase 2: After transition, apply target state
     setTimeout(() => {
-        switch(mode) {
-            case 'ai-view':
-                // Stay dark - AI can't see unobservables
-                document.getElementById('labelUnobservable')?.classList.remove('visible');
-                break;
+        // Update unobservable labels
+        if (showUnobservables) {
+            document.querySelectorAll('.unobservable-label').forEach(el => {
+                el.style.opacity = mode === 'human-view' ? '1' : '';
+            });
+            document.getElementById('labelUnobservable')?.classList.add('visible');
+        } else {
+            document.getElementById('labelUnobservable')?.classList.remove('visible');
+        }
 
+        // Update observable labels
+        if (showObservables) {
+            document.querySelectorAll('.observable-label').forEach(el => {
+                el.style.opacity = mode === 'ai-view' ? '1' : '';
+            });
+            document.getElementById('labelObservable')?.classList.add('visible');
+        } else {
+            document.getElementById('labelObservable')?.classList.remove('visible');
+        }
+
+        // Apply mode-specific visual adjustments
+        switch(mode) {
             case 'human-view':
-                // Reveal expanded perception
-                unobservableObjects.forEach((group, i) => {
-                    gsap.to(group.scale, {
-                        x: 1.2, y: 1.2, z: 1.2,
-                        duration: 0.6,
-                        delay: i * 0.05,
-                        ease: 'back.out(1.5)'
-                    });
-                });
-                document.querySelectorAll('.unobservable-label').forEach(el => {
-                    el.style.opacity = '1';
-                });
                 if (lightCone) {
                     gsap.to(lightCone.material, { opacity: 0.08, duration: 0.6 });
                 }
                 if (scene.fog) {
                     gsap.to(scene.fog, { near: 20, far: 50, duration: 0.8 });
                 }
-                document.getElementById('labelUnobservable')?.classList.add('visible');
                 break;
 
             case 'normal':
             default:
-                // Restore normal balanced view
-                unobservableObjects.forEach((group, i) => {
-                    gsap.to(group.scale, {
-                        x: 1, y: 1, z: 1,
-                        duration: 0.5,
-                        delay: i * 0.03,
-                        ease: 'power2.out'
-                    });
-                });
-                document.querySelectorAll('.unobservable-label').forEach(el => {
-                    el.style.opacity = '';
-                });
                 if (lightCone) {
                     gsap.to(lightCone.material, { opacity: 0.15, duration: 0.6 });
                 }
                 if (scene.fog) {
                     gsap.to(scene.fog, { near: 15, far: 40, duration: 0.8 });
                 }
-                document.getElementById('labelUnobservable')?.classList.add('visible');
                 break;
         }
     }, 700); // Delay matches camera transition midpoint
@@ -717,6 +828,11 @@ function focusOnOrb(orbId) {
 
     if (!orbData || !orbObject) return;
 
+    // Clear any focused observable first
+    if (StateManager.focusedObservable) {
+        StateManager.setFocusedObservable(null);
+    }
+
     StateManager.setFocusedOrb(orbId);
 
     // Play focus sound
@@ -738,16 +854,58 @@ function focusOnOrb(orbId) {
     transitionToPosition(focusPosition, focusTarget, 1.0);
 
     // Show detail panel
-    showDetailPanel(orbData);
+    showDetailPanel(orbData, false);
 
     // Dim other elements
-    setSceneDimming(true, orbId);
+    setSceneDimming(true, orbId, null);
+}
+
+function focusOnObservable(orbId) {
+    const orbData = CONFIG.observables.find(o => o.id === orbId);
+    const orbObject = observableObjects.find(g => g.userData.observable.id === orbId);
+
+    if (!orbData || !orbObject) return;
+
+    // Clear any focused unobservable first
+    if (StateManager.focusedOrb) {
+        StateManager.setFocusedOrb(null);
+    }
+
+    StateManager.setFocusedObservable(orbId);
+
+    // Play focus sound
+    AudioManager.playFocusSound();
+
+    // Calculate camera position for focus (offset from orb)
+    const orbPos = orbObject.position;
+    const focusPosition = {
+        x: orbPos.x + 3,
+        y: orbPos.y + 4,
+        z: orbPos.z + 4
+    };
+    const focusTarget = {
+        x: orbPos.x,
+        y: orbPos.y + 0.5,
+        z: orbPos.z
+    };
+
+    transitionToPosition(focusPosition, focusTarget, 1.0);
+
+    // Show detail panel with observable styling
+    showDetailPanel(orbData, true);
+
+    // Dim other elements
+    setSceneDimming(true, null, orbId);
 }
 
 function exitFocus() {
-    if (!StateManager.focusedOrb) return;
+    if (!StateManager.focusedOrb && !StateManager.focusedObservable) return;
+
+    // Play exit sound
+    AudioManager.playExitSound();
 
     StateManager.setFocusedOrb(null);
+    StateManager.setFocusedObservable(null);
 
     // Return to overview
     transitionToPreset('overview', 1.0);
@@ -756,16 +914,31 @@ function exitFocus() {
     hideDetailPanel();
 
     // Restore scene
-    setSceneDimming(false, null);
+    setSceneDimming(false, null, null);
 }
 
-function setSceneDimming(dimmed, exceptOrbId) {
+function setSceneDimming(dimmed, exceptUnobservableId, exceptObservableId) {
     const dimOpacity = 0.3;
     const normalOpacity = 1.0;
 
     // Dim/restore unobservable orbs
     unobservableObjects.forEach(group => {
-        const isException = group.userData.unobservable.id === exceptOrbId;
+        const isException = group.userData.unobservable.id === exceptUnobservableId;
+        const targetOpacity = dimmed && !isException ? dimOpacity : normalOpacity;
+
+        group.children.forEach(child => {
+            if (child.material && child.material.opacity !== undefined) {
+                gsap.to(child.material, {
+                    opacity: targetOpacity * (child.userData?.baseOpacity || child.material.opacity),
+                    duration: 0.5
+                });
+            }
+        });
+    });
+
+    // Dim/restore observable orbs
+    observableObjects.forEach(group => {
+        const isException = group.userData.observable.id === exceptObservableId;
         const targetOpacity = dimmed && !isException ? dimOpacity : normalOpacity;
 
         group.children.forEach(child => {
@@ -787,7 +960,7 @@ function setSceneDimming(dimmed, exceptOrbId) {
     }
 }
 
-function showDetailPanel(orbData) {
+function showDetailPanel(orbData, isObservable = false) {
     const panel = document.getElementById('detailPanel');
     const title = document.getElementById('detailTitle');
     const symbol = document.getElementById('detailSymbol');
@@ -799,6 +972,13 @@ function showDetailPanel(orbData) {
     title.textContent = orbData.title;
     description.textContent = orbData.description;
 
+    // Apply observable styling if needed
+    if (isObservable) {
+        panel.classList.add('detail-panel--observable');
+    } else {
+        panel.classList.remove('detail-panel--observable');
+    }
+
     panel.classList.add('visible');
 }
 
@@ -806,6 +986,7 @@ function hideDetailPanel() {
     const panel = document.getElementById('detailPanel');
     if (panel) {
         panel.classList.remove('visible');
+        panel.classList.remove('detail-panel--observable');
     }
 }
 
@@ -855,13 +1036,55 @@ function removeConnectionLine() {
     }
 }
 
-function updateConnectionLine() {
-    // Show connection line when hovering OR when focused on an orb
-    const activeOrb = StateManager.focusedOrb || hoveredUnobservable;
+// Create connection line for observable orbs (AI to orb) - cyan color
+function createObservableConnectionLine(fromPosition, toPosition) {
+    removeObservableConnectionLine();
 
-    if (activeOrb) {
+    // Create curved path
+    const midPoint = new THREE.Vector3(
+        (fromPosition.x + toPosition.x) / 2,
+        Math.max(fromPosition.y, toPosition.y) + 0.8, // Slightly lower arc
+        (fromPosition.z + toPosition.z) / 2
+    );
+
+    const curve = new THREE.QuadraticBezierCurve3(
+        fromPosition,
+        midPoint,
+        toPosition
+    );
+
+    const points = curve.getPoints(30);
+    const geometry = new THREE.BufferGeometry().setFromPoints(points);
+
+    const material = new THREE.LineDashedMaterial({
+        color: CONFIG.colors.observable,
+        dashSize: 0.15,
+        gapSize: 0.1,
+        transparent: true,
+        opacity: 0.6
+    });
+
+    observableConnectionLine = new THREE.Line(geometry, material);
+    observableConnectionLine.computeLineDistances();
+    scene.add(observableConnectionLine);
+}
+
+function removeObservableConnectionLine() {
+    if (observableConnectionLine) {
+        scene.remove(observableConnectionLine);
+        observableConnectionLine.geometry.dispose();
+        observableConnectionLine.material.dispose();
+        observableConnectionLine = null;
+    }
+}
+
+function updateConnectionLine() {
+    // Handle unobservable connection line (Human to orb)
+    const activeUnobservable = StateManager.focusedOrb || hoveredUnobservable;
+
+    if (activeUnobservable) {
         const orbObject = unobservableObjects.find(
-            g => g.userData.unobservable.id === activeOrb
+            g => g.userData.unobservable.id === activeUnobservable
         );
         if (orbObject) {
             createConnectionLine(
@@ -877,6 +1100,33 @@ function updateConnectionLine() {
     } else {
         removeConnectionLine();
     }
+
+    // Handle observable connection line (AI to orb)
+    const activeObservable = StateManager.focusedObservable || hoveredObservable;
+
+    if (activeObservable) {
+        const orbObject = observableObjects.find(
+            g => g.userData.observable.id === activeObservable
+        );
+        if (orbObject) {
+            // Update AI figure position dynamically
+            if (aiRobot) {
+                aiFigurePosition.set(aiRobot.position.x, 0.8, aiRobot.position.z);
+            }
+
+            createObservableConnectionLine(
+                orbObject.position.clone(),
+                aiFigurePosition.clone()
+            );
+
+            // Animate dash offset for flowing effect
+            if (observableConnectionLine && observableConnectionLine.material) {
+                observableConnectionLine.material.dashOffset -= 0.02;
+            }
+        }
+    } else {
+        removeObservableConnectionLine();
+    }
 }
 
 // ============================================================
@@ -885,12 +1135,16 @@ function updateConnectionLine() {
 
 let scene, camera, renderer, controls;
 let humanFigurePosition = new THREE.Vector3(2, 0.8, 0); // Human figure center
-let connectionLine = null; // For hover connection lines
+let aiFigurePosition = new THREE.Vector3(-2, 0.8, 0); // AI figure center
+let connectionLine = null; // For hover connection lines (unobservables)
+let observableConnectionLine = null; // For observable hover connection lines
 let time = 0;
 let mouse = { x: 0, y: 0 };
 let mouseClient = { x: 0, y: 0 };
 let hoveredUnobservable = null;
+let hoveredObservable = null;
 let unobservableObjects = [];
+let observableObjects = [];
 let labelElements = [];
 let lightCone, humanGlow, aiEye, humanArm, humanBody;
 let aiRobot = null; // Robot group for movement
@@ -920,16 +1174,215 @@ let aiRobotState = {
 const MEETING_POINT = { x: 0.8, z: 0 }; // Intersection between AI and human zones
 const MEETING_INTERVAL_MIN = 25; // Minimum seconds between meetings
 const MEETING_INTERVAL_MAX = 45; // Maximum seconds between meetings
-const MEETING_TALK_DURATION = 5; // How long they "talk" when meeting
+const MEETING_TALK_DURATION = 14; // How long they "talk" when meeting (6 messages × ~2s each + buffer)
+const MEETING_LINGER_DURATION = 1.8; // Shared moment after conversation before parting
 
 let meetingState = {
     active: false,
-    phase: 'idle', // 'idle', 'ai_walking', 'human_walking', 'facing', 'talking'
+    phase: 'idle', // 'idle', 'ai_walking', 'human_walking', 'facing', 'talking', 'lingering'
     timer: 0,
+    lingerTimer: 0, // Timer for the lingering phase
     nextMeetingIn: 12, // Start with a meeting after 12 seconds
     aiAtMeetingPoint: false,
-    humanAtMeetingPoint: false
+    humanAtMeetingPoint: false,
+    conversationIndex: 0, // Which message in the conversation
+    lastTooltipTime: 0 // When the last tooltip was shown
 };
+
+// 8 Thematic Conversation Sets - Each illustrates a different Unobservable
+// Tone: Collaborative discovery, not debate. Ending with synthesis.
+const CONVERSATION_SETS = [
+    // 1. INTUITION - Sensing beyond the data
+    [
+        { speaker: 'ai', text: 'The metrics look strong.' },
+        { speaker: 'human', text: 'And there is something else...' },
+        { speaker: 'ai', text: 'What do you perceive?' },
+        { speaker: 'human', text: 'A hesitation in the room.' },
+        { speaker: 'ai', text: 'That is beyond my sensors.' },
+        { speaker: 'human', text: 'Together, we catch both.' }
+    ],
+
+    // 2. PHYSICAL PRESENCE - What being there adds
+    [
+        { speaker: 'ai', text: 'I have the meeting notes.' },
+        { speaker: 'human', text: 'The handshake mattered too.' },
+        { speaker: 'ai', text: 'Tell me what happened.' },
+        { speaker: 'human', text: 'Trust began in that moment.' },
+        { speaker: 'ai', text: 'Presence adds meaning.' },
+        { speaker: 'human', text: 'Data and being. Both matter.' }
+    ],
+
+    // 3. READING THE ROOM - Noticing what faces reveal
+    [
+        { speaker: 'ai', text: 'Everyone signed off.' },
+        { speaker: 'human', text: 'I noticed their expressions.' },
+        { speaker: 'ai', text: 'What did you see?' },
+        { speaker: 'human', text: 'Concern beneath the nods.' },
+        { speaker: 'ai', text: 'That changes the picture.' },
+        { speaker: 'human', text: 'We see more together.' }
+    ],
+
+    // 4. RELATIONSHIP CAPITAL - The weight of history
+    [
+        { speaker: 'ai', text: 'This vendor scores highest.' },
+        { speaker: 'human', text: 'We have history with another.' },
+        { speaker: 'ai', text: 'How long together?' },
+        { speaker: 'human', text: 'Fifteen years of trust.' },
+        { speaker: 'ai', text: 'That holds real weight.' },
+        { speaker: 'human', text: 'Some things take time to build.' }
+    ],
+
+    // 5. INSTITUTIONAL MEMORY - Learning from unwritten history
+    [
+        { speaker: 'ai', text: 'This approach seems new.' },
+        { speaker: 'human', text: 'We tried it once before.' },
+        { speaker: 'ai', text: 'There is no record of that.' },
+        { speaker: 'human', text: 'I was there. It almost worked.' },
+        { speaker: 'ai', text: 'What did you learn?' },
+        { speaker: 'human', text: 'The timing was wrong. Not the idea.' }
+    ],
+
+    // 6. CONTEXTUAL MEANING - Reading between the lines
+    [
+        { speaker: 'ai', text: 'They replied "sounds good."' },
+        { speaker: 'human', text: 'I know how they write.' },
+        { speaker: 'ai', text: 'What does that tell you?' },
+        { speaker: 'human', text: 'They have reservations.' },
+        { speaker: 'ai', text: 'The subtext matters.' },
+        { speaker: 'human', text: 'Words carry more than words.' }
+    ],
+
+    // 7. TIMING & RHYTHM - Sensing the right moment
+    [
+        { speaker: 'ai', text: 'The proposal is ready.' },
+        { speaker: 'human', text: 'Thursday would be better.' },
+        { speaker: 'ai', text: 'Why wait?' },
+        { speaker: 'human', text: 'They need space to settle.' },
+        { speaker: 'ai', text: 'Timing is its own wisdom.' },
+        { speaker: 'human', text: 'Some things need their moment.' }
+    ],
+
+    // 8. WHAT'S NOT SAID - Hearing the silences
+    [
+        { speaker: 'ai', text: 'The transcript is complete.' },
+        { speaker: 'human', text: 'The pauses were telling.' },
+        { speaker: 'ai', text: 'What did they reveal?' },
+        { speaker: 'human', text: 'Doubt. And something unspoken.' },
+        { speaker: 'ai', text: 'Silence carries meaning.' },
+        { speaker: 'human', text: 'You see the words. I hear the rest.' }
+    ]
+];
+
+// Current conversation selected for the active meeting
+let currentConversation = CONVERSATION_SETS[0];
+
+// Select a random conversation set for each meeting
+function selectRandomConversation() {
+    const index = Math.floor(Math.random() * CONVERSATION_SETS.length);
+    currentConversation = CONVERSATION_SETS[index];
+    return currentConversation;
+}
+
+// Tooltip DOM elements
+let aiTooltip = null;
+let humanTooltip = null;
+
+function createConversationTooltips() {
+    // AI tooltip
+    aiTooltip = document.createElement('div');
+    aiTooltip.className = 'conversation-tooltip ai-tooltip';
+    aiTooltip.style.cssText = `
+        position: fixed;
+        padding: 8px 14px;
+        background: rgba(34, 211, 238, 0.15);
+        border: 1px solid rgba(34, 211, 238, 0.4);
+        border-radius: 12px;
+        color: #22d3ee;
+        font-size: 13px;
+        font-family: 'SF Pro Display', -apple-system, sans-serif;
+        pointer-events: none;
+        opacity: 0;
+        transform: translateY(5px);
+        transition: opacity 0.3s ease, transform 0.3s ease;
+        max-width: 180px;
+        text-align: center;
+        backdrop-filter: blur(8px);
+        z-index: 1000;
+    `;
+    document.body.appendChild(aiTooltip);
+
+    // Human tooltip
+    humanTooltip = document.createElement('div');
+    humanTooltip.className = 'conversation-tooltip human-tooltip';
+    humanTooltip.style.cssText = `
+        position: fixed;
+        padding: 8px 14px;
+        background: rgba(52, 211, 153, 0.15);
+        border: 1px solid rgba(52, 211, 153, 0.4);
+        border-radius: 12px;
+        color: #34d399;
+        font-size: 13px;
+        font-family: 'SF Pro Display', -apple-system, sans-serif;
+        pointer-events: none;
+        opacity: 0;
+        transform: translateY(5px);
+        transition: opacity 0.3s ease, transform 0.3s ease;
+        max-width: 180px;
+        text-align: center;
+        backdrop-filter: blur(8px);
+        z-index: 1000;
+    `;
+    document.body.appendChild(humanTooltip);
+}
+
+function showTooltip(speaker, text) {
+    if (!aiTooltip || !humanTooltip) return;
+
+    // Hide both first
+    aiTooltip.style.opacity = '0';
+    aiTooltip.style.transform = 'translateY(5px)';
+    humanTooltip.style.opacity = '0';
+    humanTooltip.style.transform = 'translateY(5px)';
+
+    // Show the active speaker's tooltip
+    const tooltip = speaker === 'ai' ? aiTooltip : humanTooltip;
+    tooltip.textContent = text;
+
+    // Position tooltip above the speaker
+    const canvas = document.getElementById('canvas');
+    if (!canvas || !camera) return;
+
+    const pos = speaker === 'ai'
+        ? new THREE.Vector3(aiRobotState.currentPos.x, 2.3, aiRobotState.currentPos.z)
+        : new THREE.Vector3(humanState.currentPos.x, 2.3, humanState.currentPos.z);
+
+    pos.project(camera);
+
+    const rect = canvas.getBoundingClientRect();
+    const x = (pos.x * 0.5 + 0.5) * rect.width + rect.left;
+    const y = (-pos.y * 0.5 + 0.5) * rect.height + rect.top;
+
+    tooltip.style.left = `${x}px`;
+    tooltip.style.top = `${y - 20}px`;
+    tooltip.style.transform = 'translate(-50%, -100%)';
+
+    // Fade in
+    setTimeout(() => {
+        tooltip.style.opacity = '1';
+        tooltip.style.transform = 'translate(-50%, -100%) translateY(0)';
+    }, 50);
+}
+
+function hideAllTooltips() {
+    if (aiTooltip) {
+        aiTooltip.style.opacity = '0';
+        aiTooltip.style.transform = 'translateY(5px)';
+    }
+    if (humanTooltip) {
+        humanTooltip.style.opacity = '0';
+        humanTooltip.style.transform = 'translateY(5px)';
+    }
+}
 
 // Check if a position is close to target
 function isNearTarget(current, target, threshold = 0.15) {
@@ -951,6 +1404,13 @@ function updateMeetingState(deltaTime) {
             meetingState.aiAtMeetingPoint = false;
             meetingState.humanAtMeetingPoint = false;
 
+            // Select a random conversation for this meeting
+            selectRandomConversation();
+
+            // Consistent movement speeds for natural pacing
+            const AI_MOVE_SPEED = 0.5; // Comfortable pace
+            const HUMAN_MOVE_SPEED = 0.5; // Comfortable pace
+
             // Send AI to meeting point
             const aiTarget = { x: MEETING_POINT.x - 0.5, z: MEETING_POINT.z };
             aiRobotState.startPos = { ...aiRobotState.currentPos };
@@ -960,8 +1420,8 @@ function updateMeetingState(deltaTime) {
             const aiDist = Math.sqrt(aiDx * aiDx + aiDz * aiDz);
             aiRobotState.startHeadAngle = aiRobotState.currentHeadAngle;
             aiRobotState.targetHeadAngle = Math.atan2(aiDx, aiDz);
-            aiRobotState.turnDuration = 0.4;
-            aiRobotState.moveDuration = Math.max(1.5, aiDist * 0.8);
+            aiRobotState.turnDuration = 0.5;
+            aiRobotState.moveDuration = aiDist / AI_MOVE_SPEED;
             aiRobotState.phase = 'turning';
             aiRobotState.phaseTimer = 0;
 
@@ -974,8 +1434,8 @@ function updateMeetingState(deltaTime) {
             const humanDist = Math.sqrt(humanDx * humanDx + humanDz * humanDz);
             humanState.startAngle = humanState.currentAngle;
             humanState.targetAngle = Math.atan2(humanDx, humanDz);
-            humanState.turnDuration = 0.4;
-            humanState.moveDuration = Math.max(1.5, humanDist * 0.8);
+            humanState.turnDuration = 0.5;
+            humanState.moveDuration = humanDist / HUMAN_MOVE_SPEED;
             humanState.phase = 'turning';
             humanState.phaseTimer = 0;
         }
@@ -1039,7 +1499,7 @@ function updateMeetingState(deltaTime) {
         }
 
         // Timeout - if they take too long, skip to talking anyway
-        if (meetingState.timer > 8) {
+        if (meetingState.timer > 15) { // Longer timeout for slower movement
             meetingState.phase = 'facing';
             meetingState.timer = 0;
         }
@@ -1053,7 +1513,7 @@ function updateMeetingState(deltaTime) {
         }
     }
 
-    // Phase: Talking - exchange information
+    // Phase: Talking - exchange information with tooltips
     if (meetingState.phase === 'talking') {
         // Keep them paused during talking
         aiRobotState.phase = 'paused';
@@ -1063,25 +1523,78 @@ function updateMeetingState(deltaTime) {
         humanState.phaseTimer = 0;
         humanState.pauseDuration = 99; // Don't auto-resume
 
-        // Subtle head movements - AI inner head nods
+        // === CONVERSATION TOOLTIPS ===
+        // Show alternating messages with enough time to read each one
+        const TOOLTIP_INTERVAL = 2.0; // Seconds between messages
+        const timeSinceLastTooltip = meetingState.timer - meetingState.lastTooltipTime;
+
+        if (timeSinceLastTooltip >= TOOLTIP_INTERVAL && meetingState.conversationIndex < currentConversation.length) {
+            const message = currentConversation[meetingState.conversationIndex];
+            showTooltip(message.speaker, message.text);
+            meetingState.lastTooltipTime = meetingState.timer;
+            meetingState.conversationIndex++;
+        }
+
+        // Subtle head movements - speaker nods more actively
+        const currentSpeaker = meetingState.conversationIndex > 0
+            ? currentConversation[meetingState.conversationIndex - 1].speaker
+            : 'ai';
+
+        // AI inner head nods (more when speaking)
         if (aiInnerHead) {
-            const nod = Math.sin(meetingState.timer * 3.5) * 0.1;
+            const baseNod = Math.sin(meetingState.timer * 3.5) * 0.1;
+            const speakerBoost = currentSpeaker === 'ai' ? 1.5 : 0.7;
             const tilt = Math.sin(meetingState.timer * 2.1) * 0.05;
-            aiInnerHead.rotation.x = nod;
+            aiInnerHead.rotation.x = baseNod * speakerBoost;
             aiInnerHead.rotation.z = tilt;
         }
 
-        // Human head nods
+        // Human head nods (more when speaking)
         if (humanHead) {
-            const nod = Math.sin(meetingState.timer * 4 + 0.8) * 0.08;
-            humanHead.rotation.x = nod;
+            const baseNod = Math.sin(meetingState.timer * 4 + 0.8) * 0.08;
+            const speakerBoost = currentSpeaker === 'human' ? 1.5 : 0.7;
+            humanHead.rotation.x = baseNod * speakerBoost;
         }
 
-        // Done talking
+        // Done talking - transition to lingering
         if (meetingState.timer >= MEETING_TALK_DURATION) {
-            // End meeting - release back to patrol
+            hideAllTooltips();
+            meetingState.phase = 'lingering';
+            meetingState.lingerTimer = 0;
+        }
+    }
+
+    // Phase: Lingering - a shared moment of stillness before parting
+    if (meetingState.phase === 'lingering') {
+        meetingState.lingerTimer += deltaTime;
+
+        // Keep them paused and facing each other
+        aiRobotState.phase = 'paused';
+        aiRobotState.phaseTimer = 0;
+        aiRobotState.pauseDuration = 99;
+        humanState.phase = 'paused';
+        humanState.phaseTimer = 0;
+        humanState.pauseDuration = 99;
+
+        // Gentle appreciative nods from both - slower, more deliberate
+        const nodProgress = Math.min(meetingState.lingerTimer / MEETING_LINGER_DURATION, 1);
+        const nodCurve = Math.sin(nodProgress * Math.PI); // Single arc nod
+
+        if (aiInnerHead) {
+            aiInnerHead.rotation.x = nodCurve * 0.15; // Deeper, slower nod
+            aiInnerHead.rotation.z = 0;
+        }
+        if (humanHead) {
+            humanHead.rotation.x = nodCurve * 0.12; // Matching nod
+        }
+
+        // End of lingering - release back to patrol
+        if (meetingState.lingerTimer >= MEETING_LINGER_DURATION) {
             meetingState.active = false;
             meetingState.phase = 'idle';
+            meetingState.conversationIndex = 0;
+            meetingState.lastTooltipTime = 0;
+            meetingState.lingerTimer = 0;
             meetingState.nextMeetingIn = MEETING_INTERVAL_MIN +
                 Math.random() * (MEETING_INTERVAL_MAX - MEETING_INTERVAL_MIN);
 
@@ -1179,8 +1692,11 @@ function init() {
         createAIFigure();
         createHumanFigure();
         createUnobservables();
+        createObservables();
         createSceneLabels();
         createConstellationLines();
+        createObservableConstellationLines();
+        createConversationTooltips(); // For AI-Human meeting dialogue
 
         // Events
         setupEvents();
@@ -1478,6 +1994,12 @@ function createConstellationLines() {
 function updateConstellationLines() {
     if (!constellationLines || !camera) return;
 
+    // Don't show unobservable constellation in AI view (AI can't see them)
+    if (StateManager.mode === 'ai-view') {
+        constellationLines.material.opacity = 0;
+        return;
+    }
+
     // Calculate camera distance from scene center
     const sceneCenter = new THREE.Vector3(2, 0, 0);
     const distance = camera.position.distanceTo(sceneCenter);
@@ -1518,6 +2040,89 @@ function updateConstellationLines() {
     });
 
     constellationLines.geometry.attributes.position.needsUpdate = true;
+}
+
+// Observable Constellation Lines (same behavior for AI side)
+let observableConstellationLines = null;
+
+function createObservableConstellationLines() {
+    // Define connections between observable orbs (pairs of indices)
+    // Mirroring the unobservable connection pattern
+    const connections = [
+        [0, 2], [2, 5], [5, 7], // Main arc
+        [1, 3], [3, 4], [4, 6], // Secondary arc
+        [0, 1], [2, 3], [5, 6], // Cross connections
+    ];
+
+    const points = [];
+    connections.forEach(([a, b]) => {
+        if (observableObjects[a] && observableObjects[b]) {
+            points.push(observableObjects[a].position.clone());
+            points.push(observableObjects[b].position.clone());
+        }
+    });
+
+    const geometry = new THREE.BufferGeometry().setFromPoints(points);
+    const material = new THREE.LineBasicMaterial({
+        color: CONFIG.colors.observable,
+        transparent: true,
+        opacity: 0,
+        depthWrite: false
+    });
+
+    observableConstellationLines = new THREE.LineSegments(geometry, material);
+    scene.add(observableConstellationLines);
+}
+
+function updateObservableConstellationLines() {
+    if (!observableConstellationLines || !camera) return;
+
+    // Don't show observable constellation in Human view (Human can't see AI's domain)
+    if (StateManager.mode === 'human-view') {
+        observableConstellationLines.material.opacity = 0;
+        return;
+    }
+
+    // Calculate camera distance from AI scene center
+    const aiSceneCenter = new THREE.Vector3(-4, 0, 0);
+    const distance = camera.position.distanceTo(aiSceneCenter);
+
+    // Show constellation when zoomed out (same thresholds as unobservables)
+    const fadeStart = 18;
+    const fadeEnd = 25;
+
+    let targetOpacity = 0;
+    if (distance > fadeStart) {
+        targetOpacity = Math.min((distance - fadeStart) / (fadeEnd - fadeStart), 0.3);
+    }
+
+    // Smooth transition
+    const currentOpacity = observableConstellationLines.material.opacity;
+    observableConstellationLines.material.opacity = currentOpacity + (targetOpacity - currentOpacity) * 0.05;
+
+    // Update line positions based on orb positions
+    const positions = observableConstellationLines.geometry.attributes.position.array;
+    const connections = [
+        [0, 2], [2, 5], [5, 7],
+        [1, 3], [3, 4], [4, 6],
+        [0, 1], [2, 3], [5, 6],
+    ];
+
+    let idx = 0;
+    connections.forEach(([a, b]) => {
+        if (observableObjects[a] && observableObjects[b]) {
+            const posA = observableObjects[a].position;
+            const posB = observableObjects[b].position;
+            positions[idx++] = posA.x;
+            positions[idx++] = posA.y;
+            positions[idx++] = posA.z;
+            positions[idx++] = posB.x;
+            positions[idx++] = posB.y;
+            positions[idx++] = posB.z;
+        }
+    });
+
+    observableConstellationLines.geometry.attributes.position.needsUpdate = true;
 }
 
 // ============================================================
@@ -1794,7 +2399,7 @@ function createAIFigure() {
     aiRobot.position.set(-2, 0, 0);
     scene.add(aiRobot);
 
-    createLabel('AI', new THREE.Vector3(-2, 1.8, 0), '#22d3ee');
+    createLabel('AI', new THREE.Vector3(-2, 2.0, 0), '#22d3ee');
 
     console.log('AI R4X robot created with glass dome head');
 }
@@ -1942,11 +2547,12 @@ function updateAIRobotMovement(deltaTime) {
                 aiRobotState.targetHeadAngle - aiRobotState.startHeadAngle
             ));
 
-            // Dynamic turn duration: more time for larger turns (0.4 to 1.0 seconds)
-            aiRobotState.turnDuration = 0.4 + (angleDiff / Math.PI) * 0.6;
+            // Dynamic turn duration: more time for larger turns (0.5 to 1.0 seconds)
+            aiRobotState.turnDuration = 0.5 + (angleDiff / Math.PI) * 0.5;
 
-            // Move duration based on distance
-            aiRobotState.moveDuration = 2.0 + dist * 0.6;
+            // Move duration based on consistent speed
+            const AI_PATROL_SPEED = 0.5; // Units per second
+            aiRobotState.moveDuration = dist / AI_PATROL_SPEED;
 
             // Next pause duration
             aiRobotState.pauseDuration = 1.8 + Math.random() * 1.5;
@@ -2073,6 +2679,9 @@ let humanState = {
 };
 
 // Pick a random patrol point within human perception area
+// IMPORTANT: Excludes intersection zone so human only goes there during meetings
+const INTERSECTION_EXCLUSION_X = 1.8; // Human stays right of this X value during patrol
+
 function pickHumanPatrolTarget() {
     for (let attempts = 0; attempts < 10; attempts++) {
         // Random point within the human area
@@ -2080,6 +2689,9 @@ function pickHumanPatrolTarget() {
         const radius = Math.random() * HUMAN_AREA_RADIUS;
         const x = HUMAN_AREA_CENTER.x + Math.cos(angle) * radius;
         const z = HUMAN_AREA_CENTER.z + Math.sin(angle) * radius;
+
+        // Exclude intersection zone - human shouldn't wander into meeting area
+        if (x < INTERSECTION_EXCLUSION_X) continue;
 
         // Ensure some minimum distance from current position
         const dx = x - humanState.currentPos.x;
@@ -2089,8 +2701,8 @@ function pickHumanPatrolTarget() {
             return { x, z };
         }
     }
-    // Fallback
-    return { x: HUMAN_AREA_CENTER.x, z: 1 };
+    // Fallback - safe point in human's domain
+    return { x: HUMAN_AREA_CENTER.x + 0.5, z: 1 };
 }
 
 // Update human patrol movement
@@ -2101,8 +2713,6 @@ function updateHumanMovement(deltaTime) {
     if (humanMixer) {
         humanMixer.update(deltaTime);
     }
-
-    const time = Date.now() * 0.001;
 
     // ===== PHASE: PAUSED =====
     if (humanState.phase === 'paused') {
@@ -2132,7 +2742,10 @@ function updateHumanMovement(deltaTime) {
             while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
 
             humanState.turnDuration = 0.3 + (Math.abs(angleDiff) / Math.PI) * 0.5;
-            humanState.moveDuration = 2.5 + dist * 0.5;
+            // Use consistent walking speed (units per second) for natural gait
+            const HUMAN_WALK_SPEED = 0.5; // Comfortable walking pace
+            humanState.moveDuration = dist / HUMAN_WALK_SPEED;
+            humanState.moveDistance = dist; // Store for animation sync
             humanState.pauseDuration = 2.0 + Math.random() * 2.0;
 
             humanState.phase = 'turning';
@@ -2171,12 +2784,37 @@ function updateHumanMovement(deltaTime) {
     else if (humanState.phase === 'moving') {
         humanState.phaseTimer += deltaTime;
         const t = Math.min(humanState.phaseTimer / humanState.moveDuration, 1);
-        const eased = smoothEase(t);
+
+        // Custom ease curve: gradual acceleration, sustained speed, gradual deceleration
+        // More time accelerating/decelerating for natural movement
+        let eased;
+        if (t < 0.15) {
+            // Acceleration phase (ease in)
+            const accelT = t / 0.15;
+            eased = 0.15 * (accelT * accelT); // Quadratic ease-in
+        } else if (t > 0.85) {
+            // Deceleration phase (ease out)
+            const decelT = (t - 0.85) / 0.15;
+            const remaining = 1 - 0.85;
+            eased = 0.85 + remaining * (1 - (1 - decelT) * (1 - decelT)); // Quadratic ease-out
+        } else {
+            // Constant velocity in middle
+            eased = 0.15 + (t - 0.15) * (0.70 / 0.70); // Linear
+        }
+
+        // Store previous position for velocity calculation
+        const prevX = humanState.currentPos.x;
+        const prevZ = humanState.currentPos.z;
 
         humanState.currentPos.x = humanState.startPos.x +
             (humanState.targetPos.x - humanState.startPos.x) * eased;
         humanState.currentPos.z = humanState.startPos.z +
             (humanState.targetPos.z - humanState.startPos.z) * eased;
+
+        // Calculate actual velocity this frame
+        const dx = humanState.currentPos.x - prevX;
+        const dz = humanState.currentPos.z - prevZ;
+        const frameVelocity = Math.sqrt(dx * dx + dz * dz) / deltaTime;
 
         if (humanModel) {
             humanModel.position.x = humanState.currentPos.x;
@@ -2185,44 +2823,54 @@ function updateHumanMovement(deltaTime) {
         }
 
         // ===== ORGANIC WALKING ANIMATION =====
-        // Walk cycle with smooth, natural motion
-        const walkSpeed = 3.5; // Slightly slower for more natural feel
-        const walkCycle = time * walkSpeed;
+        // Scale animation speed to match actual movement velocity
+        // A natural walk cycle completes ~2 steps per second at 0.6 units/s
+        const WALK_CYCLE_RATE = 3.5; // Cycles per unit distance
+
+        // Accumulate walk phase based on distance traveled
+        if (!humanState.walkPhase) humanState.walkPhase = 0;
+        const frameDist = Math.sqrt(dx * dx + dz * dz);
+        humanState.walkPhase += frameDist * WALK_CYCLE_RATE;
+        const walkCycle = humanState.walkPhase;
+
+        // Scale animation amplitude based on velocity (smaller steps when slower)
+        const FULL_SPEED = 0.5; // Target walking speed (matches HUMAN_WALK_SPEED)
+        const velocityScale = Math.min(1, frameVelocity / FULL_SPEED);
 
         // Primary motion curves (using sine for smooth oscillation)
         const legPhase = Math.sin(walkCycle);
         const legPhaseOffset = Math.sin(walkCycle + Math.PI); // Opposite leg
 
-        // Leg swing with asymmetric forward/back motion
-        const legSwingForward = 0.35; // Forward swing amplitude
-        const legSwingBack = 0.25; // Back swing (smaller for natural gait)
+        // Leg swing with asymmetric forward/back motion, scaled by velocity
+        const legSwingForward = 0.35 * velocityScale; // Forward swing amplitude
+        const legSwingBack = 0.25 * velocityScale; // Back swing (smaller for natural gait)
         const leftLegSwing = legPhase > 0 ? legPhase * legSwingForward : legPhase * legSwingBack;
         const rightLegSwing = legPhaseOffset > 0 ? legPhaseOffset * legSwingForward : legPhaseOffset * legSwingBack;
 
-        // Knee bend (calves bend more when leg swings back)
-        const leftKneeBend = Math.max(0, -legPhase) * 0.5; // Bend when swinging back
-        const rightKneeBend = Math.max(0, -legPhaseOffset) * 0.5;
+        // Knee bend (calves bend more when leg swings back), scaled
+        const leftKneeBend = Math.max(0, -legPhase) * 0.5 * velocityScale;
+        const rightKneeBend = Math.max(0, -legPhaseOffset) * 0.5 * velocityScale;
 
-        // Arm swing (opposite to legs, slightly delayed)
+        // Arm swing (opposite to legs, slightly delayed), scaled
         const armPhase = Math.sin(walkCycle + 0.2);
         const armPhaseOffset = Math.sin(walkCycle + Math.PI + 0.2);
-        const armSwing = 0.25;
+        const armSwing = 0.25 * velocityScale;
 
         // Forearm bend (natural arm bend while walking)
         const forearmBend = 0.3; // Base bend
-        const leftForearmExtra = Math.max(0, armPhase) * 0.2;
-        const rightForearmExtra = Math.max(0, armPhaseOffset) * 0.2;
+        const leftForearmExtra = Math.max(0, armPhase) * 0.2 * velocityScale;
+        const rightForearmExtra = Math.max(0, armPhaseOffset) * 0.2 * velocityScale;
 
-        // Torso motion
-        const torsoTwist = Math.sin(walkCycle) * 0.04; // Subtle shoulder rotation
-        const torsoSway = Math.sin(walkCycle) * 0.02; // Side-to-side lean
-        const torsoLean = 0.03; // Slight forward lean while walking
+        // Torso motion, scaled by velocity
+        const torsoTwist = Math.sin(walkCycle) * 0.04 * velocityScale; // Subtle shoulder rotation
+        const torsoSway = Math.sin(walkCycle) * 0.02 * velocityScale; // Side-to-side lean
+        const torsoLean = 0.03 * velocityScale; // Slight forward lean while walking
 
         // Head motion (counter-rotation to keep looking forward)
         const headCounter = -torsoTwist * 0.5;
 
-        // Hip drop (weight shift)
-        const hipDrop = Math.sin(walkCycle) * 0.01;
+        // Hip drop (weight shift), scaled
+        const hipDrop = Math.sin(walkCycle) * 0.01 * velocityScale;
 
         // Apply leg rotations with knee bend
         if (humanLeftLeg) {
@@ -2272,11 +2920,11 @@ function updateHumanMovement(deltaTime) {
             humanHead.rotation.y = headCounter;
         }
 
-        // Body bob (up/down motion synced with steps)
+        // Body bob (up/down motion synced with steps), scaled by velocity
         // Double frequency because we bob twice per full walk cycle
         if (humanModel) {
             const bobPhase = Math.abs(Math.sin(walkCycle * 2));
-            const bobOffset = bobPhase * 0.012;
+            const bobOffset = bobPhase * 0.012 * velocityScale;
             humanModel.position.y = humanModelYOffset + bobOffset;
         }
 
@@ -2287,6 +2935,7 @@ function updateHumanMovement(deltaTime) {
         if (t >= 1) {
             humanState.phase = 'paused';
             humanState.phaseTimer = 0;
+            humanState.walkPhase = 0; // Reset walk cycle for next movement
 
             // Reset all limbs to neutral position
             if (humanLeftLeg) { humanLeftLeg.rotation.x = 0; humanLeftLeg.rotation.z = 0; }
@@ -2299,6 +2948,7 @@ function updateHumanMovement(deltaTime) {
             if (humanRightForearm) humanRightForearm.rotation.x = -0.15;
             if (humanTorso) { humanTorso.rotation.x = 0; humanTorso.rotation.y = 0; humanTorso.rotation.z = 0; }
             if (humanHead) humanHead.rotation.y = 0;
+            if (humanModel) humanModel.position.y = humanModelYOffset; // Reset height
         }
     }
 }
@@ -2320,7 +2970,7 @@ function createHumanFigure() {
     createFallbackHumanFigure();
 
     // Label - will be updated to follow human
-    createLabel('Human', new THREE.Vector3(3.5, 2.2, 0), '#34d399');
+    createLabel('Human', new THREE.Vector3(3.5, 2.0, 0), '#34d399');
 
     console.log('Human figure loading from walking_person_basic.glb...');
 }
@@ -2341,17 +2991,17 @@ let humanRightCalf = null;
 function createFallbackHumanFigure() {
     const humanGroup = new THREE.Group();
 
-    // ===== PRECISE PROPORTIONS - Calculated for seamless connections =====
-    const scale = 0.85;
-    const headRadius = 0.12 * scale;
-    const torsoHeight = 0.35 * scale;
-    const shoulderWidth = 0.26 * scale;
-    const hipWidth = 0.16 * scale;
-    const upperArmLength = 0.16 * scale;
-    const forearmLength = 0.14 * scale;
-    const thighLength = 0.22 * scale;
-    const calfLength = 0.20 * scale;
-    const limbRadius = 0.03 * scale;
+    // ===== ADULT PROPORTIONS - Taller body, smaller head ratio =====
+    const scale = 1.0; // Full adult scale
+    const headRadius = 0.10 * scale; // Smaller head for adult proportions
+    const torsoHeight = 0.42 * scale; // Longer torso
+    const shoulderWidth = 0.30 * scale; // Broader shoulders
+    const hipWidth = 0.18 * scale;
+    const upperArmLength = 0.20 * scale; // Longer arms
+    const forearmLength = 0.17 * scale;
+    const thighLength = 0.28 * scale; // Longer legs
+    const calfLength = 0.26 * scale;
+    const limbRadius = 0.035 * scale; // Slightly thicker limbs
 
     // Calculate exact Y positions for seamless alignment
     const hipY = calfLength + thighLength;
@@ -2376,11 +3026,11 @@ function createFallbackHumanFigure() {
     });
 
     const beardMat = new THREE.MeshStandardMaterial({
-        color: 0x2a2a2a,
-        roughness: 0.9,
+        color: 0x1a1a1a, // Darker for more visible stubble
+        roughness: 0.95,
         metalness: 0.0,
         transparent: true,
-        opacity: 0.9,
+        opacity: 0.85,
     });
 
     const eyeWhiteMat = new THREE.MeshStandardMaterial({
@@ -2456,46 +3106,72 @@ function createFallbackHumanFigure() {
     chinMesh.scale.set(0.8, 0.5, 0.6);
     headGroup.add(chinMesh);
 
-    // ===== HAIR - Pompadour/quiff style (NOT a helmet) =====
-    // Only cover the TOP of the head - short on sides like a fade
+    // ===== HAIR - Clear zones: TOP, BACK, SIDES =====
+    // IMPORTANT: Forehead and face must stay visible!
+    // Hair stays BEHIND Z = 0 line (back half of head) except for top crown
 
-    // Top hair - flat cap on top only (not wrapping down)
-    const topHairGeom = new THREE.SphereGeometry(headRadius * 1.05, 32, 32, 0, Math.PI * 2, 0, Math.PI * 0.35);
-    const topHair = new THREE.Mesh(topHairGeom, hairMat);
-    topHair.position.set(0, headRadius * 0.15, 0);
-    headGroup.add(topHair);
+    // --- TOP OF HEAD (crown only, not extending to forehead) ---
+    // This sits on top of the skull, doesn't come down to forehead
+    const crownGeom = new THREE.SphereGeometry(headRadius * 1.05, 32, 32, 0, Math.PI * 2, 0, Math.PI * 0.4);
+    const crown = new THREE.Mesh(crownGeom, hairMat);
+    crown.position.set(0, headRadius * 0.25, -headRadius * 0.15); // Shifted back, away from face
+    headGroup.add(crown);
 
-    // Pompadour - the signature swept-up front volume
-    const pompMainGeom = new THREE.SphereGeometry(headRadius * 0.7, 24, 24);
-    const pompMain = new THREE.Mesh(pompMainGeom, hairMat);
-    pompMain.position.set(0, headRadius * 0.75, headRadius * 0.4);
-    pompMain.scale.set(1.4, 0.65, 0.8);
-    pompMain.rotation.x = -0.35;
-    headGroup.add(pompMain);
+    // Hairline edge - clean line above forehead (not covering it)
+    const hairlineGeom = new THREE.TorusGeometry(headRadius * 0.75, headRadius * 0.08, 8, 24, Math.PI);
+    const hairline = new THREE.Mesh(hairlineGeom, hairMat);
+    hairline.position.set(0, headRadius * 0.55, headRadius * 0.15); // At forehead line
+    hairline.rotation.x = -0.3;
+    hairline.rotation.z = Math.PI; // Curved away from face
+    headGroup.add(hairline);
 
-    // Pompadour top crest
-    const pompCrestGeom = new THREE.SphereGeometry(headRadius * 0.5, 20, 20);
-    const pompCrest = new THREE.Mesh(pompCrestGeom, hairMat);
-    pompCrest.position.set(0, headRadius * 1.0, headRadius * 0.2);
-    pompCrest.scale.set(1.2, 0.5, 0.7);
-    pompCrest.rotation.x = -0.2;
-    headGroup.add(pompCrest);
+    // --- BACK OF HEAD (full coverage from crown to nape) ---
+    // Upper back - connects to crown
+    const backUpperGeom = new THREE.SphereGeometry(headRadius * 1.1, 24, 24);
+    const backUpper = new THREE.Mesh(backUpperGeom, hairMat);
+    backUpper.position.set(0, headRadius * 0.35, -headRadius * 0.5);
+    backUpper.scale.set(0.9, 0.65, 0.5);
+    headGroup.add(backUpper);
 
-    // Side fade - very thin layer on sides
+    // Mid back
+    const backMidGeom = new THREE.SphereGeometry(headRadius * 1.0, 24, 24);
+    const backMid = new THREE.Mesh(backMidGeom, hairMat);
+    backMid.position.set(0, headRadius * 0.0, -headRadius * 0.6);
+    backMid.scale.set(0.95, 0.6, 0.45);
+    headGroup.add(backMid);
+
+    // Lower back / nape - extends down
+    const napeGeom = new THREE.SphereGeometry(headRadius * 0.8, 20, 20);
+    const nape = new THREE.Mesh(napeGeom, hairMat);
+    nape.position.set(0, -headRadius * 0.35, -headRadius * 0.55);
+    nape.scale.set(0.85, 0.5, 0.4);
+    headGroup.add(nape);
+
+    // Back corners - connect back to sides
     [-1, 1].forEach(side => {
-        const fadeGeom = new THREE.SphereGeometry(headRadius * 0.3, 16, 16);
-        const fade = new THREE.Mesh(fadeGeom, hairMat);
-        fade.position.set(side * headRadius * 0.85, headRadius * 0.35, -headRadius * 0.1);
-        fade.scale.set(0.3, 0.5, 0.6);
-        headGroup.add(fade);
+        const backCornerGeom = new THREE.SphereGeometry(headRadius * 0.6, 16, 16);
+        const backCorner = new THREE.Mesh(backCornerGeom, hairMat);
+        backCorner.position.set(side * headRadius * 0.6, headRadius * 0.15, -headRadius * 0.55);
+        backCorner.scale.set(0.5, 0.6, 0.45);
+        headGroup.add(backCorner);
     });
 
-    // Back of head hair
-    const backHairGeom = new THREE.SphereGeometry(headRadius * 0.8, 20, 20);
-    const backHair = new THREE.Mesh(backHairGeom, hairMat);
-    backHair.position.set(0, headRadius * 0.4, -headRadius * 0.35);
-    backHair.scale.set(1.0, 0.6, 0.5);
-    headGroup.add(backHair);
+    // --- SIDES (above ears, not covering them) ---
+    [-1, 1].forEach(side => {
+        // Upper side - above ear level
+        const sideTopGeom = new THREE.SphereGeometry(headRadius * 0.45, 16, 16);
+        const sideTop = new THREE.Mesh(sideTopGeom, hairMat);
+        sideTop.position.set(side * headRadius * 0.85, headRadius * 0.45, -headRadius * 0.2);
+        sideTop.scale.set(0.3, 0.45, 0.5);
+        headGroup.add(sideTop);
+
+        // Side fade - very short, above ear
+        const sideFadeGeom = new THREE.SphereGeometry(headRadius * 0.35, 14, 14);
+        const sideFade = new THREE.Mesh(sideFadeGeom, hairMat);
+        sideFade.position.set(side * headRadius * 0.9, headRadius * 0.25, -headRadius * 0.25);
+        sideFade.scale.set(0.2, 0.35, 0.4);
+        headGroup.add(sideFade);
+    });
 
     // ===== FACE - LARGE, clearly visible features =====
     const faceZ = headRadius * 0.95; // Features protrude from face
@@ -3222,6 +3898,526 @@ const ORB_EFFECTS = {
     }
 };
 
+// ============================================================
+// Observable Orb Effects - Precise, geometric, digital aesthetic
+// ============================================================
+// DESIGN PRINCIPLES:
+// 1. All animations must be continuous, smooth, and cyclic
+// 2. Colors stay in cyan range - AI's domain
+// 3. Geometric, precise movements - contrast with organic unobservables
+// 4. Each has external elements that convey its meaning
+
+const OBSERVABLE_EFFECTS = {
+    metrics: {
+        // Concentric measurement rings that pulse in precise intervals
+        setup: (group) => {
+            // Add 3 measurement rings at precise distances
+            for (let i = 0; i < 3; i++) {
+                const ringGeom = new THREE.RingGeometry(0.12 + i * 0.06, 0.125 + i * 0.06, 32);
+                const ringMat = new THREE.MeshBasicMaterial({
+                    color: CONFIG.colors.observable,
+                    transparent: true,
+                    opacity: 0.4 - i * 0.1,
+                    side: THREE.DoubleSide
+                });
+                const ring = new THREE.Mesh(ringGeom, ringMat);
+                ring.rotation.x = Math.PI / 2;
+                ring.userData.baseRadius = 0.12 + i * 0.06;
+                ring.userData.index = i;
+                group.add(ring);
+            }
+            // Add 4 data point particles at cardinal positions
+            for (let i = 0; i < 4; i++) {
+                const pointGeom = new THREE.SphereGeometry(0.015, 8, 8);
+                const pointMat = new THREE.MeshBasicMaterial({
+                    color: 0xffffff,
+                    transparent: true,
+                    opacity: 0.7
+                });
+                const point = new THREE.Mesh(pointGeom, pointMat);
+                point.userData.angle = (i / 4) * Math.PI * 2;
+                group.add(point);
+            }
+        },
+        animate: (group, time) => {
+            // Precise, measured pulse - like a heartbeat monitor
+            const pulsePhase = (time * 0.8) % (Math.PI * 2);
+            const pulse = Math.sin(pulsePhase) * 0.5 + 0.5; // 0 to 1
+
+            // Rings expand in sequence
+            group.children.slice(2, 5).forEach((ring, i) => {
+                const delay = i * 0.3;
+                const localPulse = Math.sin(pulsePhase - delay) * 0.5 + 0.5;
+                const scale = 1 + localPulse * 0.15;
+                ring.scale.set(scale, scale, 1);
+                ring.material.opacity = (0.3 - i * 0.08) + localPulse * 0.2;
+            });
+
+            // Data points orbit at precise distance
+            group.children.slice(5).forEach((point, i) => {
+                const angle = point.userData.angle + time * 0.3;
+                const radius = 0.22;
+                point.position.x = Math.cos(angle) * radius;
+                point.position.z = Math.sin(angle) * radius;
+                point.position.y = 0;
+                point.material.opacity = 0.5 + pulse * 0.3;
+            });
+        }
+    },
+
+    records: {
+        // Faceted crystal shape that catches light - archived information
+        setup: (group) => {
+            // Create an octahedron for the crystalline look
+            const crystalGeom = new THREE.OctahedronGeometry(0.08, 0);
+            const crystalMat = new THREE.MeshBasicMaterial({
+                color: CONFIG.colors.observable,
+                transparent: true,
+                opacity: 0.6,
+                wireframe: true
+            });
+            const crystal = new THREE.Mesh(crystalGeom, crystalMat);
+            group.add(crystal);
+
+            // Add 4 document fragment particles
+            for (let i = 0; i < 4; i++) {
+                const fragGeom = new THREE.PlaneGeometry(0.025, 0.035);
+                const fragMat = new THREE.MeshBasicMaterial({
+                    color: 0xffffff,
+                    transparent: true,
+                    opacity: 0.4,
+                    side: THREE.DoubleSide
+                });
+                const frag = new THREE.Mesh(fragGeom, fragMat);
+                frag.userData.orbitPhase = (i / 4) * Math.PI * 2;
+                frag.userData.orbitTilt = (i % 2) * 0.3;
+                group.add(frag);
+            }
+        },
+        animate: (group, time) => {
+            const crystal = group.children[2];
+            if (crystal) {
+                // Slow, precise rotation
+                crystal.rotation.y = time * 0.2;
+                crystal.rotation.x = Math.sin(time * 0.15) * 0.2;
+            }
+
+            // Document fragments orbit
+            group.children.slice(3).forEach((frag, i) => {
+                const phase = frag.userData.orbitPhase;
+                const tilt = frag.userData.orbitTilt;
+                const angle = time * 0.25 + phase;
+                const radius = 0.18;
+
+                frag.position.x = Math.cos(angle) * radius;
+                frag.position.z = Math.sin(angle) * radius;
+                frag.position.y = Math.sin(angle * 2 + tilt) * 0.03;
+                frag.rotation.y = angle + Math.PI / 2;
+                frag.material.opacity = 0.3 + Math.sin(time * 0.5 + phase) * 0.15;
+            });
+        }
+    },
+
+    patterns: {
+        // Network of connected nodes - correlations in data
+        setup: (group) => {
+            // Create 5 small node spheres in a network
+            const nodePositions = [
+                { x: 0, y: 0, z: 0.12 },
+                { x: 0.1, y: 0.05, z: -0.08 },
+                { x: -0.1, y: -0.03, z: -0.08 },
+                { x: 0.05, y: -0.1, z: 0.05 },
+                { x: -0.08, y: 0.08, z: 0 }
+            ];
+
+            nodePositions.forEach((pos, i) => {
+                const nodeGeom = new THREE.SphereGeometry(0.02, 8, 8);
+                const nodeMat = new THREE.MeshBasicMaterial({
+                    color: CONFIG.colors.observable,
+                    transparent: true,
+                    opacity: 0.8
+                });
+                const node = new THREE.Mesh(nodeGeom, nodeMat);
+                node.position.set(pos.x, pos.y, pos.z);
+                node.userData.basePos = { ...pos };
+                node.userData.index = i;
+                group.add(node);
+            });
+
+            // Create connection lines between nodes
+            const connections = [[0, 1], [0, 2], [1, 3], [2, 4], [3, 4], [1, 4]];
+            connections.forEach(([a, b]) => {
+                const points = [
+                    new THREE.Vector3(nodePositions[a].x, nodePositions[a].y, nodePositions[a].z),
+                    new THREE.Vector3(nodePositions[b].x, nodePositions[b].y, nodePositions[b].z)
+                ];
+                const lineGeom = new THREE.BufferGeometry().setFromPoints(points);
+                const lineMat = new THREE.LineBasicMaterial({
+                    color: CONFIG.colors.observable,
+                    transparent: true,
+                    opacity: 0.3
+                });
+                const line = new THREE.Line(lineGeom, lineMat);
+                line.userData.nodeA = a;
+                line.userData.nodeB = b;
+                group.add(line);
+            });
+        },
+        animate: (group, time) => {
+            // Nodes pulse in sequence - like data flowing
+            group.children.slice(2, 7).forEach((node, i) => {
+                const pulsePhase = (time * 0.6 + i * 0.4) % (Math.PI * 2);
+                const pulse = Math.sin(pulsePhase) * 0.5 + 0.5;
+                const scale = 0.8 + pulse * 0.4;
+                node.scale.setScalar(scale);
+                node.material.opacity = 0.5 + pulse * 0.4;
+            });
+
+            // Connection lines pulse in sequence
+            group.children.slice(7).forEach((line, i) => {
+                const pulsePhase = (time * 0.4 + i * 0.5) % (Math.PI * 2);
+                const pulse = Math.sin(pulsePhase) * 0.5 + 0.5;
+                line.material.opacity = 0.15 + pulse * 0.35;
+            });
+
+            // Slow overall rotation
+            group.children.slice(2, 7).forEach((node) => {
+                const bp = node.userData.basePos;
+                const angle = time * 0.1;
+                const cos = Math.cos(angle);
+                const sin = Math.sin(angle);
+                node.position.x = bp.x * cos - bp.z * sin;
+                node.position.z = bp.x * sin + bp.z * cos;
+            });
+        }
+    },
+
+    categories: {
+        // Nested geometric layers - taxonomies and structure
+        setup: (group) => {
+            // Create 3 nested wireframe boxes
+            for (let i = 0; i < 3; i++) {
+                const size = 0.08 + i * 0.05;
+                const boxGeom = new THREE.BoxGeometry(size, size, size);
+                const boxMat = new THREE.MeshBasicMaterial({
+                    color: CONFIG.colors.observable,
+                    transparent: true,
+                    opacity: 0.5 - i * 0.12,
+                    wireframe: true
+                });
+                const box = new THREE.Mesh(boxGeom, boxMat);
+                box.userData.rotationSpeed = 0.15 - i * 0.03;
+                box.userData.rotationAxis = i % 2 === 0 ? 'y' : 'x';
+                group.add(box);
+            }
+
+            // Add 4 small label markers orbiting
+            for (let i = 0; i < 4; i++) {
+                const labelGeom = new THREE.BoxGeometry(0.02, 0.008, 0.008);
+                const labelMat = new THREE.MeshBasicMaterial({
+                    color: 0xffffff,
+                    transparent: true,
+                    opacity: 0.5
+                });
+                const label = new THREE.Mesh(labelGeom, labelMat);
+                label.userData.orbitAngle = (i / 4) * Math.PI * 2;
+                group.add(label);
+            }
+        },
+        animate: (group, time) => {
+            // Nested boxes rotate at different rates
+            group.children.slice(2, 5).forEach((box, i) => {
+                const speed = box.userData.rotationSpeed;
+                if (box.userData.rotationAxis === 'y') {
+                    box.rotation.y = time * speed;
+                    box.rotation.x = Math.sin(time * speed * 0.5) * 0.1;
+                } else {
+                    box.rotation.x = time * speed;
+                    box.rotation.y = Math.sin(time * speed * 0.5) * 0.1;
+                }
+            });
+
+            // Label markers orbit in organized paths
+            group.children.slice(5).forEach((label, i) => {
+                const angle = label.userData.orbitAngle + time * 0.2;
+                const radius = 0.2;
+                label.position.x = Math.cos(angle) * radius;
+                label.position.z = Math.sin(angle) * radius;
+                label.position.y = 0;
+                label.rotation.y = angle;
+            });
+        }
+    },
+
+    timestamps: {
+        // Clock-like segments with ticking motion
+        setup: (group) => {
+            // Clock face ring
+            const faceGeom = new THREE.RingGeometry(0.1, 0.12, 32);
+            const faceMat = new THREE.MeshBasicMaterial({
+                color: CONFIG.colors.observable,
+                transparent: true,
+                opacity: 0.3,
+                side: THREE.DoubleSide
+            });
+            const face = new THREE.Mesh(faceGeom, faceMat);
+            face.rotation.x = Math.PI / 2;
+            group.add(face);
+
+            // Clock hand
+            const handGeom = new THREE.BoxGeometry(0.008, 0.08, 0.004);
+            const handMat = new THREE.MeshBasicMaterial({
+                color: 0xffffff,
+                transparent: true,
+                opacity: 0.8
+            });
+            const hand = new THREE.Mesh(handGeom, handMat);
+            hand.position.y = 0.04;
+
+            const handPivot = new THREE.Group();
+            handPivot.add(hand);
+            group.add(handPivot);
+
+            // Add hour markers
+            for (let i = 0; i < 12; i++) {
+                const markerGeom = new THREE.BoxGeometry(0.015, 0.004, 0.004);
+                const markerMat = new THREE.MeshBasicMaterial({
+                    color: CONFIG.colors.observable,
+                    transparent: true,
+                    opacity: 0.6
+                });
+                const marker = new THREE.Mesh(markerGeom, markerMat);
+                const angle = (i / 12) * Math.PI * 2;
+                const radius = 0.11;
+                marker.position.x = Math.cos(angle) * radius;
+                marker.position.z = Math.sin(angle) * radius;
+                marker.rotation.y = -angle + Math.PI / 2;
+                group.add(marker);
+            }
+
+            group.userData.handAngle = 0;
+            group.userData.targetAngle = 0;
+            group.userData.lastTick = 0;
+        },
+        animate: (group, time) => {
+            const handPivot = group.children[3];
+            if (!handPivot) return;
+
+            // Tick every 0.5 seconds
+            if (time - group.userData.lastTick > 0.5) {
+                group.userData.targetAngle -= Math.PI / 6;
+                group.userData.lastTick = time;
+            }
+
+            // Smooth interpolation to target
+            group.userData.handAngle += (group.userData.targetAngle - group.userData.handAngle) * 0.15;
+            handPivot.rotation.y = group.userData.handAngle;
+
+            // Subtle pulse on face
+            const pulse = Math.sin(time * 2) * 0.1 + 0.9;
+            group.children[2].material.opacity = 0.25 * pulse;
+        }
+    },
+
+    transactions: {
+        // Two hemispheres with particles flowing between - exchanges
+        setup: (group) => {
+            // Two small spheres representing exchange endpoints
+            const endpointGeom = new THREE.SphereGeometry(0.04, 12, 12);
+            const endpointMat = new THREE.MeshBasicMaterial({
+                color: CONFIG.colors.observable,
+                transparent: true,
+                opacity: 0.7
+            });
+
+            const endpoint1 = new THREE.Mesh(endpointGeom, endpointMat.clone());
+            endpoint1.position.set(-0.08, 0, 0);
+            group.add(endpoint1);
+
+            const endpoint2 = new THREE.Mesh(endpointGeom, endpointMat.clone());
+            endpoint2.position.set(0.08, 0, 0);
+            group.add(endpoint2);
+
+            // Connection arc between endpoints
+            const curvePoints = [];
+            for (let t = 0; t <= 1; t += 0.05) {
+                const x = -0.08 + t * 0.16;
+                const y = Math.sin(t * Math.PI) * 0.04;
+                curvePoints.push(new THREE.Vector3(x, y, 0));
+            }
+            const curveGeom = new THREE.BufferGeometry().setFromPoints(curvePoints);
+            const curveMat = new THREE.LineBasicMaterial({
+                color: CONFIG.colors.observable,
+                transparent: true,
+                opacity: 0.4
+            });
+            const curve = new THREE.Line(curveGeom, curveMat);
+            group.add(curve);
+
+            // Data packet particles that travel along the path
+            for (let i = 0; i < 3; i++) {
+                const packetGeom = new THREE.SphereGeometry(0.012, 6, 6);
+                const packetMat = new THREE.MeshBasicMaterial({
+                    color: 0xffffff,
+                    transparent: true,
+                    opacity: 0.8
+                });
+                const packet = new THREE.Mesh(packetGeom, packetMat);
+                packet.userData.phase = i / 3;
+                packet.userData.direction = i % 2 === 0 ? 1 : -1;
+                group.add(packet);
+            }
+        },
+        animate: (group, time) => {
+            // Endpoints pulse alternately
+            const pulse1 = Math.sin(time * 2) * 0.5 + 0.5;
+            const pulse2 = Math.sin(time * 2 + Math.PI) * 0.5 + 0.5;
+
+            group.children[2].material.opacity = 0.5 + pulse1 * 0.3;
+            group.children[3].material.opacity = 0.5 + pulse2 * 0.3;
+            group.children[2].scale.setScalar(0.9 + pulse1 * 0.2);
+            group.children[3].scale.setScalar(0.9 + pulse2 * 0.2);
+
+            // Packets travel along the arc
+            group.children.slice(5).forEach((packet) => {
+                const phase = packet.userData.phase;
+                const dir = packet.userData.direction;
+
+                // Continuous travel cycle
+                let t = ((time * 0.5 + phase) % 1);
+                if (dir < 0) t = 1 - t;
+
+                const x = -0.08 + t * 0.16;
+                const y = Math.sin(t * Math.PI) * 0.04;
+                packet.position.set(x, y, 0);
+
+                // Fade at endpoints
+                const edgeFade = Math.sin(t * Math.PI);
+                packet.material.opacity = 0.3 + edgeFade * 0.6;
+            });
+        }
+    },
+
+    signals: {
+        // Crystal octahedron with radiating light rays - clear communication
+        setup: (group) => {
+            // Transparent octahedron
+            const crystalGeom = new THREE.OctahedronGeometry(0.07, 0);
+            const crystalMat = new THREE.MeshBasicMaterial({
+                color: CONFIG.colors.observable,
+                transparent: true,
+                opacity: 0.8
+            });
+            const crystal = new THREE.Mesh(crystalGeom, crystalMat);
+            group.add(crystal);
+
+            // Add 6 radiating light rays
+            for (let i = 0; i < 6; i++) {
+                const rayGeom = new THREE.CylinderGeometry(0.003, 0.001, 0.1, 4);
+                const rayMat = new THREE.MeshBasicMaterial({
+                    color: 0xffffff,
+                    transparent: true,
+                    opacity: 0.4
+                });
+                const ray = new THREE.Mesh(rayGeom, rayMat);
+
+                // Position rays radiating outward
+                const angle = (i / 6) * Math.PI * 2;
+                ray.position.x = Math.cos(angle) * 0.12;
+                ray.position.z = Math.sin(angle) * 0.12;
+                ray.rotation.z = Math.PI / 2;
+                ray.rotation.y = -angle;
+                ray.userData.angle = angle;
+                group.add(ray);
+            }
+        },
+        animate: (group, time) => {
+            const crystal = group.children[2];
+            if (crystal) {
+                // Gentle rotation
+                crystal.rotation.y = time * 0.3;
+
+                // Pulsing brightness
+                const pulse = Math.sin(time * 1.5) * 0.5 + 0.5;
+                crystal.material.opacity = 0.6 + pulse * 0.3;
+            }
+
+            // Rays pulse outward in sequence
+            group.children.slice(3).forEach((ray, i) => {
+                const pulsePhase = (time * 2 + i * 0.5) % (Math.PI * 2);
+                const pulse = Math.sin(pulsePhase) * 0.5 + 0.5;
+
+                // Scale outward
+                const baseRadius = 0.12;
+                const radius = baseRadius + pulse * 0.05;
+                const angle = ray.userData.angle;
+                ray.position.x = Math.cos(angle) * radius;
+                ray.position.z = Math.sin(angle) * radius;
+
+                ray.material.opacity = 0.2 + pulse * 0.4;
+                ray.scale.y = 0.8 + pulse * 0.4;
+            });
+        }
+    },
+
+    keywords: {
+        // Floating text-like fragments orbiting - searchable terms
+        setup: (group) => {
+            // Create small rectangular "text" fragments
+            for (let i = 0; i < 6; i++) {
+                const fragGeom = new THREE.BoxGeometry(0.03 + Math.random() * 0.02, 0.006, 0.002);
+                const fragMat = new THREE.MeshBasicMaterial({
+                    color: CONFIG.colors.observable,
+                    transparent: true,
+                    opacity: 0.6
+                });
+                const frag = new THREE.Mesh(fragGeom, fragMat);
+                frag.userData.orbitRadius = 0.12 + Math.random() * 0.08;
+                frag.userData.orbitSpeed = 0.2 + Math.random() * 0.15;
+                frag.userData.orbitPhase = (i / 6) * Math.PI * 2;
+                frag.userData.yOffset = (Math.random() - 0.5) * 0.06;
+                group.add(frag);
+            }
+
+            // Add a central search "cursor" line
+            const cursorGeom = new THREE.BoxGeometry(0.003, 0.08, 0.003);
+            const cursorMat = new THREE.MeshBasicMaterial({
+                color: 0xffffff,
+                transparent: true,
+                opacity: 0.7
+            });
+            const cursor = new THREE.Mesh(cursorGeom, cursorMat);
+            group.add(cursor);
+        },
+        animate: (group, time) => {
+            // Text fragments orbit at different speeds
+            group.children.slice(2, 8).forEach((frag) => {
+                const radius = frag.userData.orbitRadius;
+                const speed = frag.userData.orbitSpeed;
+                const phase = frag.userData.orbitPhase;
+                const yOffset = frag.userData.yOffset;
+
+                const angle = time * speed + phase;
+                frag.position.x = Math.cos(angle) * radius;
+                frag.position.z = Math.sin(angle) * radius;
+                frag.position.y = yOffset + Math.sin(time * 0.5 + phase) * 0.02;
+                frag.rotation.y = angle + Math.PI / 2;
+
+                // Occasional highlight
+                const highlight = Math.sin(time * 0.8 + phase) > 0.8;
+                frag.material.opacity = highlight ? 0.9 : 0.5;
+            });
+
+            // Blinking cursor
+            const cursor = group.children[8];
+            if (cursor) {
+                const blink = Math.sin(time * 4) > 0;
+                cursor.material.opacity = blink ? 0.8 : 0.2;
+            }
+        }
+    }
+};
+
 function createUnobservables() {
     CONFIG.unobservables.forEach((u, i) => {
         const group = new THREE.Group();
@@ -3290,6 +4486,81 @@ function createUnobservableLabel(u, group) {
         object: group,
         data: u,
         isUnobservable: true,
+    });
+}
+
+// ============================================================
+// Observables (AI's visible domain)
+// ============================================================
+
+function createObservables() {
+    CONFIG.observables.forEach((o, i) => {
+        const group = new THREE.Group();
+
+        // Core orb - cool cyan, geometric precision
+        const orbGeom = new THREE.SphereGeometry(0.1, 24, 24); // Higher detail for precision look
+        const orbMat = new THREE.MeshBasicMaterial({
+            color: CONFIG.colors.observable,
+            transparent: true,
+            opacity: 0.95,
+        });
+        const orb = new THREE.Mesh(orbGeom, orbMat);
+        group.add(orb);
+
+        // Precise glow halo - slightly more defined edge than unobservables
+        const glowGeom = new THREE.SphereGeometry(0.16, 24, 24);
+        const glowMat = new THREE.MeshBasicMaterial({
+            color: CONFIG.colors.observable,
+            transparent: true,
+            opacity: 0.15,
+        });
+        const glow = new THREE.Mesh(glowGeom, glowMat);
+        group.add(glow);
+
+        // Get observable-specific effect configuration
+        const effect = OBSERVABLE_EFFECTS[o.id];
+
+        // Apply setup function if exists (adds extra geometry)
+        if (effect && effect.setup) {
+            effect.setup(group);
+        }
+
+        // Position - within the light cone area, floating at a low height
+        const baseYOffset = effect?.baseYOffset || 0;
+        const baseY = 0.4 + baseYOffset; // Slightly lower than unobservables
+        group.position.set(o.position.x, baseY, o.position.z);
+        group.userData = {
+            observable: o,
+            index: i,
+            baseY: baseY,
+            effect: effect
+        };
+
+        scene.add(group);
+        observableObjects.push(group);
+
+        // HTML label
+        createObservableLabel(o, group);
+    });
+
+    console.log('Observables created with unique effects');
+}
+
+function createObservableLabel(o, group) {
+    const labelDiv = document.createElement('div');
+    labelDiv.className = 'observable-label';
+    labelDiv.innerHTML = `
+        <span class="symbol">${o.symbol}</span>
+        <span class="title">${o.title}</span>
+    `;
+    labelDiv.dataset.id = o.id;
+    document.body.appendChild(labelDiv);
+
+    labelElements.push({
+        element: labelDiv,
+        object: group,
+        data: o,
+        isObservable: true,
     });
 }
 
@@ -3364,6 +4635,12 @@ function updateLabels() {
                             StateManager.focusedOrb === label.data.id;
             label.element.classList.toggle('hovered', isActive);
         }
+
+        if (label.isObservable) {
+            // Apply hover state for observable orbs
+            const isActive = hoveredObservable === label.data.id;
+            label.element.classList.toggle('hovered', isActive);
+        }
     });
 }
 
@@ -3389,6 +4666,17 @@ function updateTooltip() {
             tooltipText.textContent = u.description;
             tooltip.style.left = (mouseClient.x + 20) + 'px';
             tooltip.style.top = (mouseClient.y - 20) + 'px';
+            tooltip.classList.remove('tooltip--observable'); // Ensure unobservable styling
+            tooltip.classList.add('visible');
+        }
+    } else if (hoveredObservable) {
+        const o = CONFIG.observables.find(o => o.id === hoveredObservable);
+        if (o) {
+            tooltipTitle.textContent = o.title;
+            tooltipText.textContent = o.description;
+            tooltip.style.left = (mouseClient.x + 20) + 'px';
+            tooltip.style.top = (mouseClient.y - 20) + 'px';
+            tooltip.classList.add('tooltip--observable'); // Use observable styling
             tooltip.classList.add('visible');
         }
     } else {
@@ -3407,11 +4695,20 @@ function checkHover() {
     const mouseVec = new THREE.Vector2(mouse.x, mouse.y);
     raycaster.setFromCamera(mouseVec, camera);
 
-    const orbs = unobservableObjects.map(g => g.children[0]);
-    const intersects = raycaster.intersectObjects(orbs);
+    // Check unobservable orbs
+    const unobsOrbs = unobservableObjects.map(g => g.children[0]);
+    const unobsIntersects = raycaster.intersectObjects(unobsOrbs);
 
-    if (intersects.length > 0) {
-        const obj = intersects[0].object.parent;
+    // Check observable orbs
+    const obsOrbs = observableObjects.map(g => g.children[0]);
+    const obsIntersects = raycaster.intersectObjects(obsOrbs);
+
+    // Reset both hover states
+    hoveredUnobservable = null;
+    hoveredObservable = null;
+
+    if (unobsIntersects.length > 0) {
+        const obj = unobsIntersects[0].object.parent;
         const newHoveredId = obj.userData.unobservable.id;
 
         // Play sound when hovering a new orb
@@ -3423,8 +4720,20 @@ function checkHover() {
 
         hoveredUnobservable = newHoveredId;
         document.body.style.cursor = 'pointer';
+    } else if (obsIntersects.length > 0) {
+        const obj = obsIntersects[0].object.parent;
+        const newHoveredId = obj.userData.observable.id;
+
+        // Play sound when hovering a new observable orb
+        if (newHoveredId !== previousHoveredOrb) {
+            const orbIndex = obj.userData.index;
+            AudioManager.playHoverSound(orbIndex);
+            previousHoveredOrb = newHoveredId;
+        }
+
+        hoveredObservable = newHoveredId;
+        document.body.style.cursor = 'pointer';
     } else {
-        hoveredUnobservable = null;
         previousHoveredOrb = null;
         document.body.style.cursor = 'default';
     }
@@ -3507,7 +4816,7 @@ function animate() {
     if (aiRobot) {
         const aiLabel = labelElements.find(l => l.isFixed && l.element?.textContent === 'AI');
         if (aiLabel) {
-            aiLabel.position.set(aiRobot.position.x, 1.5, aiRobot.position.z);
+            aiLabel.position.set(aiRobot.position.x, 2.0, aiRobot.position.z);
         }
     }
 
@@ -3520,7 +4829,7 @@ function animate() {
     if (humanModel) {
         const humanLabel = labelElements.find(l => l.isFixed && l.element?.textContent === 'Human');
         if (humanLabel) {
-            humanLabel.position.set(humanModel.position.x, 2.2, humanModel.position.z);
+            humanLabel.position.set(humanModel.position.x, 2.0, humanModel.position.z);
         }
     }
 
@@ -3544,18 +4853,28 @@ function animate() {
 
     // Update constellation lines (visible when zoomed out)
     updateConstellationLines();
+    updateObservableConstellationLines();
 
     // Update proximity glow (orbs glow brighter when camera is close)
     updateProximityGlow();
 
     // Animate unobservables - gentle floating motion + unique effects
+    // Skip animation if in AI view (unobservables should stay hidden)
+    const unobservablesVisible = StateManager.mode !== 'ai-view';
     unobservableObjects.forEach((group, i) => {
+        // If in AI view, keep orbs hidden (scale 0)
+        if (!unobservablesVisible) {
+            group.scale.setScalar(0);
+            return;
+        }
+
         const baseY = group.userData.baseY;
         group.position.y = baseY + Math.sin(time * 0.5 + i * 0.7) * 0.08;
 
         const isHovered = hoveredUnobservable === group.userData.unobservable.id;
         const isFocused = StateManager.focusedOrb === group.userData.unobservable.id;
-        const targetScale = (isHovered || isFocused) ? 1.3 : 1.0;
+        const baseScale = StateManager.mode === 'human-view' ? 1.2 : 1.0;
+        const targetScale = (isHovered || isFocused) ? 1.3 : baseScale;
         const currentScale = group.scale.x;
         const newScale = currentScale + (targetScale - currentScale) * 0.1;
         group.scale.setScalar(newScale);
@@ -3571,6 +4890,40 @@ function animate() {
         const glow = group.children[1];
         orb.material.opacity = isHovered ? 1.0 : 0.9;
         glow.material.opacity = isHovered ? 0.25 : 0.12;
+    });
+
+    // Animate observables - precise, digital floating motion + unique effects
+    // Skip animation if in Human view (observables should stay hidden)
+    const observablesVisible = StateManager.mode !== 'human-view';
+    observableObjects.forEach((group, i) => {
+        // If in Human view, keep orbs hidden (scale 0)
+        if (!observablesVisible) {
+            group.scale.setScalar(0);
+            return;
+        }
+
+        const baseY = group.userData.baseY;
+        // Slightly different motion - more precise, less organic
+        group.position.y = baseY + Math.sin(time * 0.7 + i * 0.5) * 0.05;
+
+        const isHovered = hoveredObservable === group.userData.observable.id;
+        const baseScale = StateManager.mode === 'ai-view' ? 1.2 : 1.0;
+        const targetScale = isHovered ? 1.25 : baseScale;
+        const currentScale = group.scale.x;
+        const newScale = currentScale + (targetScale - currentScale) * 0.12;
+        group.scale.setScalar(newScale);
+
+        // Apply orb-specific animation effect
+        const effect = group.userData.effect;
+        if (effect && effect.animate) {
+            effect.animate(group, time);
+        }
+
+        // Animate opacity for hover feedback
+        const orb = group.children[0];
+        const glow = group.children[1];
+        orb.material.opacity = isHovered ? 1.0 : 0.95;
+        glow.material.opacity = isHovered ? 0.28 : 0.15;
     });
 
     // Update connection line when hovering
@@ -3627,11 +4980,13 @@ function setupEvents() {
         // Raycast to find orb
         const raycaster = new THREE.Raycaster();
         raycaster.setFromCamera(touchMouse, camera);
-        const orbs = unobservableObjects.map(g => g.children[0]);
-        const intersects = raycaster.intersectObjects(orbs);
 
-        if (intersects.length > 0) {
-            const orbId = intersects[0].object.parent.userData.unobservable.id;
+        // Check unobservable orbs
+        const unobsOrbs = unobservableObjects.map(g => g.children[0]);
+        const unobsIntersects = raycaster.intersectObjects(unobsOrbs);
+
+        if (unobsIntersects.length > 0) {
+            const orbId = unobsIntersects[0].object.parent.userData.unobservable.id;
 
             // If already focused on this orb, let OrbitControls handle it
             if (StateManager.focusedOrb === orbId) return;
@@ -3640,10 +4995,27 @@ function setupEvents() {
             e.stopPropagation();
             StateManager.recordInteraction();
             focusOnOrb(orbId);
+            return;
+        }
+
+        // Check observable orbs
+        const obsOrbs = observableObjects.map(g => g.children[0]);
+        const obsIntersects = raycaster.intersectObjects(obsOrbs);
+
+        if (obsIntersects.length > 0) {
+            const orbId = obsIntersects[0].object.parent.userData.observable.id;
+
+            // If already focused on this orb, let OrbitControls handle it
+            if (StateManager.focusedObservable === orbId) return;
+
+            e.preventDefault();
+            e.stopPropagation();
+            StateManager.recordInteraction();
+            focusOnObservable(orbId);
         }
     }, { passive: false });
 
-    // Click to focus on unobservables
+    // Click to focus on orbs (both observable and unobservable)
     document.addEventListener('click', (e) => {
         StateManager.recordInteraction();
 
@@ -3665,8 +5037,17 @@ function setupEvents() {
             return;
         }
 
+        // Check if clicking on an observable orb
+        if (hoveredObservable) {
+            // If clicking on a different orb than currently focused, switch to it
+            if (StateManager.focusedObservable !== hoveredObservable) {
+                focusOnObservable(hoveredObservable);
+            }
+            return;
+        }
+
         // If focused and clicking elsewhere (not on an orb), exit focus
-        if (StateManager.focusedOrb) {
+        if (StateManager.focusedOrb || StateManager.focusedObservable) {
             exitFocus();
         }
     });
@@ -3795,6 +5176,9 @@ function playIntro() {
     unobservableObjects.forEach(group => {
         group.scale.setScalar(0);
     });
+    observableObjects.forEach(group => {
+        group.scale.setScalar(0);
+    });
 
     setTimeout(() => {
         document.getElementById('quote').classList.add('visible');
@@ -3807,7 +5191,12 @@ function playIntro() {
         document.getElementById('labelUnobservable')?.classList.add('visible');
     }, 1000);
 
-    // Reveal unobservable orbs with staggered animation
+    // Reveal observable orbs first (they're in the light)
+    setTimeout(() => {
+        revealObservables();
+    }, 1200);
+
+    // Reveal unobservable orbs with staggered animation (slightly later)
     setTimeout(() => {
         revealUnobservables();
     }, 1500);
@@ -3859,6 +5248,28 @@ function revealUnobservables() {
             duration: 0.8,
             delay: i * 0.12,
             ease: 'back.out(1.7)'
+        });
+    });
+}
+
+// Staggered reveal animation for observable orbs
+function revealObservables() {
+    if (typeof gsap === 'undefined') {
+        // Fallback: just show them
+        observableObjects.forEach(group => {
+            group.scale.setScalar(1);
+        });
+        return;
+    }
+
+    observableObjects.forEach((group, i) => {
+        gsap.to(group.scale, {
+            x: 1,
+            y: 1,
+            z: 1,
+            duration: 0.7,
+            delay: i * 0.1,
+            ease: 'back.out(1.5)' // Slightly more precise, less bouncy than unobservables
         });
     });
 }

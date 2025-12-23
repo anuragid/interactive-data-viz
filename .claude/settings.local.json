@@ -30,7 +30,8 @@
       "Bash(ls:*)",
       "Bash(npx @gltf-transform/cli copy:*)",
       "Bash(npx @gltf-transform/cli resize:*)",
-      "Bash(npx @gltf-transform/cli inspect:*)"
+      "Bash(npx @gltf-transform/cli inspect:*)",
+      "Bash(python3:*)"
     ]
   }
 }
