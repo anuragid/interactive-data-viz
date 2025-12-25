@@ -1276,10 +1276,13 @@ const CONVERSATION_SETS = [
 // Current conversation selected for the active meeting
 let currentConversation = CONVERSATION_SETS[0];
 
-// Select a random conversation set for each meeting
+// Simple sequential cycle: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 1 → 2...
+let conversationIndex = 0;
+
 function selectRandomConversation() {
-    const index = Math.floor(Math.random() * CONVERSATION_SETS.length);
-    currentConversation = CONVERSATION_SETS[index];
+    currentConversation = CONVERSATION_SETS[conversationIndex];
+    console.log('Meeting scenario:', conversationIndex + 1, 'of', CONVERSATION_SETS.length);
+    conversationIndex = (conversationIndex + 1) % CONVERSATION_SETS.length;
     return currentConversation;
 }
 
