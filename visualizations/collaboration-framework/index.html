@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Human-AI Collaboration Framework | Before You Automate</title>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@300;400&display=swap" rel="stylesheet">
+
+    <!-- GSAP -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+    <style>
+        :root {
+            --color-bg: #0a0a0c;
+            --color-text: #f5f0e8;
+            --color-text-muted: rgba(245, 240, 232, 0.55);
+            --color-text-dim: rgba(245, 240, 232, 0.25);
+
+            /* Territory colors - distinct hues for each quadrant */
+            --color-protected: #d4a76a;    /* Warm gold/amber */
+            --color-validated: #c67878;    /* Dusty rose */
+            --color-assisted: #5e9e98;     /* Teal/seafoam */
+            --color-automation: #7079b3;   /* Soft indigo */
+
+            /* Axis colors */
+            --color-expertise: rgba(167, 139, 250, 0.8);
+            --color-consequence: rgba(251, 146, 60, 0.8);
+
+            --font-display: 'Cormorant Garamond', Georgia, serif;
+            --font-body: 'IBM Plex Sans', -apple-system, sans-serif;
+            --font-mono: 'IBM Plex Mono', monospace;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html, body {
+            height: 100%;
+            overflow: hidden;
+            background: var(--color-bg);
+            font-family: var(--font-body);
+            color: var(--color-text);
+        }
+
+        /* ============================================
+           Main Grid: Pure 2x2
+           ============================================ */
+        .framework {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            height: 100vh;
+            width: 100vw;
+            position: relative;
+        }
+
+        /* ============================================
+           Axis Lines (center dividers)
+           ============================================ */
+        .axis-line {
+            position: absolute;
+            z-index: 5;
+            pointer-events: none;
+        }
+
+        .axis-line--horizontal {
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg,
+                transparent 0%,
+                rgba(255,255,255,0.08) 5%,
+                rgba(255,255,255,0.08) 95%,
+                transparent 100%
+            );
+        }
+
+        .axis-line--vertical {
+            left: 50%;
+            top: 0;
+            bottom: 0;
+            width: 1px;
+            background: linear-gradient(180deg,
+                transparent 0%,
+                rgba(255,255,255,0.08) 5%,
+                rgba(255,255,255,0.08) 95%,
+                transparent 100%
+            );
+        }
+
+        /* ============================================
+           Axis Labels
+           ============================================ */
+        .axis-label {
+            position: absolute;
+            z-index: 10;
+            pointer-events: none;
+            display: flex;
+            align-items: center;
+            font-family: var(--font-body);
+            font-size: 0.55rem;
+            font-weight: 500;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            gap: 0.5rem;
+        }
+
+        /* Expertise (X-axis): Centered on horizontal axis line, on right side */
+        .axis-label--expertise {
+            right: 1.5rem;
+            top: 50%;
+            transform: translateY(-50%);
+            padding: 0.25rem 0.5rem;
+            background: var(--color-bg);
+            color: var(--color-expertise);
+        }
+
+        /* Consequence (Y-axis): Centered on vertical axis line */
+        .axis-label--consequence {
+            position: absolute;
+            right: calc(50% + 0.5rem);
+            top: 1.5rem;
+            transform: rotate(-90deg);
+            transform-origin: 100% 0;
+            padding: 0.25rem 0.5rem;
+            background: var(--color-bg);
+            color: var(--color-consequence);
+            white-space: nowrap;
+        }
+
+        .axis-label__dim {
+            opacity: 0.5;
+        }
+
+        .axis-label__arrow {
+            opacity: 0.4;
+            font-size: 0.5rem;
+        }
+
+        /* ============================================
+           Quadrant Territories
+           ============================================ */
+        .quadrant {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+            cursor: pointer;
+            overflow: hidden;
+            transition: background 0.5s ease;
+        }
+
+        .quadrant::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+
+        .quadrant:hover::before {
+            opacity: 1;
+        }
+
+        .quadrant__content {
+            position: relative;
+            z-index: 2;
+            text-align: center;
+            max-width: 240px;
+        }
+
+        .quadrant__zone {
+            font-family: var(--font-mono);
+            font-size: 0.45rem;
+            font-weight: 400;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            opacity: 0.4;
+            margin-bottom: 0.6rem;
+        }
+
+        .quadrant__title {
+            font-family: var(--font-display);
+            font-weight: 600;
+            line-height: 1.05;
+            margin-bottom: 0.35rem;
+            transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        .quadrant:hover .quadrant__title {
+            transform: scale(1.015);
+        }
+
+        .quadrant__subtitle {
+            font-family: var(--font-body);
+            font-size: 0.75rem;
+            font-weight: 300;
+            font-style: italic;
+            opacity: 0.6;
+            margin-bottom: 1rem;
+        }
+
+        .quadrant__description {
+            font-family: var(--font-body);
+            font-size: 0.65rem;
+            font-weight: 300;
+            line-height: 1.6;
+            opacity: 0;
+            transform: translateY(6px);
+            transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+            color: var(--color-text-muted);
+        }
+
+        .quadrant:hover .quadrant__description {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* ============================================
+           Q2 (Top-Left): Human Validated
+           Low Expertise, High Consequence
+           ============================================ */
+        .quadrant--validated {
+            grid-column: 1;
+            grid-row: 1;
+            background:
+                linear-gradient(135deg, rgba(198, 120, 120, 0.04) 0%, transparent 60%),
+                var(--color-bg);
+        }
+
+        .quadrant--validated::before {
+            background: radial-gradient(ellipse at 40% 40%, rgba(198, 120, 120, 0.08) 0%, transparent 55%);
+        }
+
+        .quadrant--validated .quadrant__title {
+            font-size: clamp(1.4rem, 3vw, 1.9rem);
+            color: var(--color-validated);
+        }
+
+        .quadrant--validated .quadrant__zone {
+            color: var(--color-validated);
+        }
+
+        /* ============================================
+           Q1 (Top-Right): Protected Human Domain
+           High Expertise, High Consequence
+           ============================================ */
+        .quadrant--protected {
+            grid-column: 2;
+            grid-row: 1;
+            background:
+                radial-gradient(ellipse at 60% 40%, rgba(212, 167, 106, 0.05) 0%, transparent 50%),
+                var(--color-bg);
+        }
+
+        .quadrant--protected::before {
+            background: radial-gradient(ellipse at center, rgba(212, 167, 106, 0.1) 0%, transparent 55%);
+        }
+
+        .quadrant--protected .quadrant__title {
+            font-size: clamp(1.5rem, 3.5vw, 2.1rem);
+            color: var(--color-protected);
+            font-weight: 500;
+        }
+
+        .quadrant--protected .quadrant__zone {
+            color: var(--color-protected);
+        }
+
+        /* Subtle glow for protected domain */
+        .quadrant--protected::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 160px;
+            height: 160px;
+            background: radial-gradient(circle, rgba(212, 167, 106, 0.06) 0%, transparent 70%);
+            border-radius: 50%;
+            pointer-events: none;
+            animation: breathe 5s ease-in-out infinite;
+        }
+
+        @keyframes breathe {
+            0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.4; }
+            50% { transform: translate(-50%, -50%) scale(1.15); opacity: 0.7; }
+        }
+
+        /* ============================================
+           Q3 (Bottom-Left): Full Automation
+           Low Expertise, Low Consequence
+           ============================================ */
+        .quadrant--automation {
+            grid-column: 1;
+            grid-row: 2;
+            background:
+                repeating-linear-gradient(
+                    0deg,
+                    transparent,
+                    transparent 25px,
+                    rgba(112, 121, 179, 0.012) 25px,
+                    rgba(112, 121, 179, 0.012) 26px
+                ),
+                repeating-linear-gradient(
+                    90deg,
+                    transparent,
+                    transparent 25px,
+                    rgba(112, 121, 179, 0.012) 25px,
+                    rgba(112, 121, 179, 0.012) 26px
+                ),
+                var(--color-bg);
+        }
+
+        .quadrant--automation::before {
+            background: radial-gradient(ellipse at center, rgba(112, 121, 179, 0.06) 0%, transparent 65%);
+        }
+
+        .quadrant--automation .quadrant__title {
+            font-size: clamp(1.4rem, 3vw, 2rem);
+            color: var(--color-automation);
+        }
+
+        .quadrant--automation .quadrant__zone {
+            color: var(--color-automation);
+        }
+
+        /* ============================================
+           Q4 (Bottom-Right): AI-Assisted Expertise
+           High Expertise, Low Consequence
+           ============================================ */
+        .quadrant--assisted {
+            grid-column: 2;
+            grid-row: 2;
+            background:
+                linear-gradient(-135deg, rgba(94, 158, 152, 0.04) 0%, transparent 50%),
+                var(--color-bg);
+        }
+
+        .quadrant--assisted::before {
+            background: radial-gradient(ellipse at 60% 60%, rgba(94, 158, 152, 0.08) 0%, transparent 55%);
+        }
+
+        .quadrant--assisted .quadrant__title {
+            font-size: clamp(1.4rem, 3vw, 1.9rem);
+            color: var(--color-assisted);
+        }
+
+        .quadrant--assisted .quadrant__zone {
+            color: var(--color-assisted);
+        }
+
+        /* ============================================
+           Detail Panel
+           ============================================ */
+        .detail-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(10, 10, 12, 0.94);
+            backdrop-filter: blur(30px);
+            z-index: 200;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.4s ease;
+        }
+
+        .detail-overlay.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .detail-panel {
+            max-width: 460px;
+            padding: 2.5rem;
+            transform: translateY(15px);
+            transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        .detail-overlay.visible .detail-panel {
+            transform: translateY(0);
+        }
+
+        .detail-panel__close {
+            position: absolute;
+            top: 2rem;
+            right: 2rem;
+            width: 36px;
+            height: 36px;
+            background: none;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 50%;
+            color: var(--color-text-dim);
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .detail-panel__close:hover {
+            border-color: rgba(255, 255, 255, 0.2);
+            color: var(--color-text);
+        }
+
+        .detail-panel__zone {
+            font-family: var(--font-mono);
+            font-size: 0.55rem;
+            font-weight: 400;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            margin-bottom: 0.8rem;
+        }
+
+        .detail-panel__title {
+            font-family: var(--font-display);
+            font-size: 2rem;
+            font-weight: 500;
+            line-height: 1.1;
+            margin-bottom: 0.5rem;
+        }
+
+        .detail-panel__subtitle {
+            font-family: var(--font-display);
+            font-size: 1rem;
+            font-weight: 400;
+            font-style: italic;
+            color: var(--color-text-muted);
+            margin-bottom: 1.5rem;
+        }
+
+        .detail-panel__description {
+            font-family: var(--font-body);
+            font-size: 0.85rem;
+            font-weight: 300;
+            line-height: 1.75;
+            color: var(--color-text-muted);
+            margin-bottom: 1.5rem;
+        }
+
+        .detail-panel__examples {
+            padding: 1rem 1.25rem;
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 3px;
+            border-left: 2px solid currentColor;
+        }
+
+        .detail-panel__examples-title {
+            font-family: var(--font-body);
+            font-size: 0.55rem;
+            font-weight: 500;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--color-text-dim);
+            margin-bottom: 0.5rem;
+        }
+
+        .detail-panel__examples-text {
+            font-family: var(--font-body);
+            font-size: 0.8rem;
+            font-weight: 300;
+            line-height: 1.55;
+            color: var(--color-text-muted);
+        }
+
+        /* ============================================
+           Responsive
+           ============================================ */
+        @media (max-width: 768px) {
+            .quadrant {
+                padding: 1.5rem;
+            }
+
+            .quadrant__title {
+                font-size: 1.2rem !important;
+            }
+
+            .quadrant__subtitle {
+                font-size: 0.65rem;
+                margin-bottom: 0.75rem;
+            }
+
+            .quadrant__description {
+                display: none;
+            }
+
+            .axis-label {
+                font-size: 0.45rem;
+            }
+
+            .axis-label--expertise {
+                right: 1rem;
+            }
+
+            .axis-label--consequence {
+                top: 1rem;
+            }
+
+            .detail-panel {
+                padding: 2rem;
+                margin: 1rem;
+            }
+
+            .detail-panel__title {
+                font-size: 1.6rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .framework {
+                grid-template-columns: 1fr;
+                grid-template-rows: repeat(4, 1fr);
+            }
+
+            .axis-line,
+            .axis-label {
+                display: none;
+            }
+
+            .quadrant {
+                grid-column: 1 !important;
+            }
+
+            /* Stack in logical order: highest stakes at top */
+            .quadrant--protected { grid-row: 1; }
+            .quadrant--validated { grid-row: 2; }
+            .quadrant--assisted { grid-row: 3; }
+            .quadrant--automation { grid-row: 4; }
+
+            .quadrant__zone {
+                opacity: 0.5;
+            }
+
+            .quadrant__title {
+                font-size: 1.3rem !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main class="framework">
+        <!-- Axis lines -->
+        <div class="axis-line axis-line--horizontal"></div>
+        <div class="axis-line axis-line--vertical"></div>
+
+        <!-- Expertise (X-axis): Low left, High right -->
+        <div class="axis-label axis-label--expertise">
+            <span class="axis-label__dim">Low</span>
+            <span class="axis-label__arrow">←</span>
+            <span>Expertise</span>
+            <span class="axis-label__arrow">→</span>
+            <span>High</span>
+        </div>
+
+        <!-- Consequence (Y-axis): Low first in HTML, High at right becomes top after -90deg rotation -->
+        <div class="axis-label axis-label--consequence">
+            <span class="axis-label__dim">Low</span>
+            <span class="axis-label__arrow">↓</span>
+            <span>Consequence</span>
+            <span class="axis-label__arrow">↑</span>
+            <span>High</span>
+        </div>
+
+        <!-- Q2 (Top-Left): Human Validated — Low Expertise, High Consequence -->
+        <article class="quadrant quadrant--validated" data-quadrant="validated">
+            <div class="quadrant__content">
+                <div class="quadrant__zone">Low Expertise · High Consequence</div>
+                <h2 class="quadrant__title">Human Validated</h2>
+                <p class="quadrant__subtitle">AI works, human validates</p>
+                <p class="quadrant__description">AI does the work, but consequences are too severe for automation alone.</p>
+            </div>
+        </article>
+
+        <!-- Q1 (Top-Right): Protected Human Domain — High Expertise, High Consequence -->
+        <article class="quadrant quadrant--protected" data-quadrant="protected">
+            <div class="quadrant__content">
+                <div class="quadrant__zone">High Expertise · High Consequence</div>
+                <h2 class="quadrant__title">Protected Human Domain</h2>
+                <p class="quadrant__subtitle">Humans must decide</p>
+                <p class="quadrant__description">Both expertise and stakes demand human judgment. AI may inform but cannot decide.</p>
+            </div>
+        </article>
+
+        <!-- Q3 (Bottom-Left): Full Automation — Low Expertise, Low Consequence -->
+        <article class="quadrant quadrant--automation" data-quadrant="automation">
+            <div class="quadrant__content">
+                <div class="quadrant__zone">Low Expertise · Low Consequence</div>
+                <h2 class="quadrant__title">Full Automation</h2>
+                <p class="quadrant__subtitle">Let AI do it</p>
+                <p class="quadrant__description">Routine tasks where errors are cheap. The default path leads here.</p>
+            </div>
+        </article>
+
+        <!-- Q4 (Bottom-Right): AI-Assisted Expertise — High Expertise, Low Consequence -->
+        <article class="quadrant quadrant--assisted" data-quadrant="assisted">
+            <div class="quadrant__content">
+                <div class="quadrant__zone">High Expertise · Low Consequence</div>
+                <h2 class="quadrant__title">AI-Assisted Expertise</h2>
+                <p class="quadrant__subtitle">AI augments the expert</p>
+                <p class="quadrant__description">Human expertise enhanced by AI capability. True collaboration.</p>
+            </div>
+        </article>
+    </main>
+
+    <!-- Detail Overlay -->
+    <div class="detail-overlay" id="detailOverlay">
+        <button class="detail-panel__close" onclick="closeDetail()">×</button>
+        <div class="detail-panel">
+            <div class="detail-panel__zone" id="detailZone"></div>
+            <h2 class="detail-panel__title" id="detailTitle"></h2>
+            <p class="detail-panel__subtitle" id="detailSubtitle"></p>
+            <p class="detail-panel__description" id="detailDescription"></p>
+            <div class="detail-panel__examples">
+                <div class="detail-panel__examples-title">Examples</div>
+                <p class="detail-panel__examples-text" id="detailExamples"></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const QUADRANTS = {
+            automation: {
+                zone: 'Low Expertise · Low Consequence',
+                title: 'Full Automation',
+                subtitle: 'Let AI do it',
+                description: 'Routine tasks where errors are cheap and expertise isn\'t required. The default path leads here—but only some things belong here. The friction reduction principle pushes everything toward this quadrant.',
+                examples: 'Email sorting, meeting scheduling, basic data entry, spam detection, automated backups, form auto-fill.',
+                color: '#7079b3'
+            },
+            assisted: {
+                zone: 'High Expertise · Low Consequence',
+                title: 'AI-Assisted Expertise',
+                subtitle: 'AI augments the expert',
+                description: 'The human has deep knowledge; AI accelerates their work. Errors are recoverable, but the human\'s expertise remains central. This is true collaboration—not replacement, but enhancement.',
+                examples: 'Analyst using AI for data processing, designer using AI for iteration, researcher using AI for literature review, developer using AI for code suggestions.',
+                color: '#5e9e98'
+            },
+            validated: {
+                zone: 'Low Expertise · High Consequence',
+                title: 'Human Validated',
+                subtitle: 'AI works, human validates',
+                description: 'AI does the work, but a human must validate before action. The task doesn\'t require deep expertise, but consequences are too severe to accept without oversight. The human is the checkpoint.',
+                examples: 'AI drafts legal documents reviewed by lawyers, AI flags fraud for human decision, AI recommends treatments verified by doctors.',
+                color: '#c67878'
+            },
+            protected: {
+                zone: 'High Expertise · High Consequence',
+                title: 'Protected Human Domain',
+                subtitle: 'Humans must decide',
+                description: 'Both expertise and stakes demand human judgment. AI may inform, surface patterns, or present options—but it cannot decide. This is where human wisdom, accountability, and moral agency are irreplaceable.',
+                examples: 'Strategic decisions, personnel evaluations, ethical judgments, creative direction, crisis management, policy-making.',
+                color: '#d4a76a'
+            }
+        };
+
+        document.querySelectorAll('.quadrant').forEach(quadrant => {
+            quadrant.addEventListener('click', () => {
+                const id = quadrant.dataset.quadrant;
+                const data = QUADRANTS[id];
+
+                document.getElementById('detailZone').textContent = data.zone;
+                document.getElementById('detailZone').style.color = data.color;
+                document.getElementById('detailTitle').textContent = data.title;
+                document.getElementById('detailTitle').style.color = data.color;
+                document.getElementById('detailSubtitle').textContent = data.subtitle;
+                document.getElementById('detailDescription').textContent = data.description;
+                document.getElementById('detailExamples').textContent = data.examples;
+                document.querySelector('.detail-panel__examples').style.borderColor = data.color;
+
+                document.getElementById('detailOverlay').classList.add('visible');
+            });
+        });
+
+        function closeDetail() {
+            document.getElementById('detailOverlay').classList.remove('visible');
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeDetail();
+        });
+
+        document.getElementById('detailOverlay').addEventListener('click', (e) => {
+            if (e.target.id === 'detailOverlay') closeDetail();
+        });
+
+        // Staggered entrance
+        gsap.set('.quadrant', { opacity: 0 });
+        gsap.to('.quadrant', {
+            opacity: 1,
+            duration: 0.8,
+            ease: 'power2.out',
+            stagger: 0.1,
+            delay: 0.2
+        });
+
+        gsap.set('.axis-line, .axis-label', { opacity: 0 });
+        gsap.to('.axis-line, .axis-label', {
+            opacity: 1,
+            duration: 0.6,
+            ease: 'power2.out',
+            delay: 0.6
+        });
+    </script>
+</body>
+</html>

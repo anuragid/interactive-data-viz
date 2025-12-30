@@ -854,6 +854,31 @@
     .part--seams { --chapter-glow: var(--glow-seams); }
     .part--pace { --chapter-glow: var(--glow-pace); }
 
+    /* Arrow button hover colors per part type */
+    .part--friction .part__action:hover:not(.part__action--disabled) {
+      background: rgba(251, 191, 36, 0.15) !important;
+      border-color: rgba(251, 191, 36, 0.3) !important;
+      color: rgb(251, 191, 36) !important;
+    }
+
+    .part--abstraction .part__action:hover:not(.part__action--disabled) {
+      background: rgba(99, 102, 241, 0.15) !important;
+      border-color: rgba(99, 102, 241, 0.3) !important;
+      color: rgb(99, 102, 241) !important;
+    }
+
+    .part--seams .part__action:hover:not(.part__action--disabled) {
+      background: rgba(52, 211, 153, 0.15) !important;
+      border-color: rgba(52, 211, 153, 0.3) !important;
+      color: rgb(52, 211, 153) !important;
+    }
+
+    .part--pace .part__action:hover:not(.part__action--disabled) {
+      background: rgba(139, 92, 246, 0.15) !important;
+      border-color: rgba(139, 92, 246, 0.3) !important;
+      color: rgb(139, 92, 246) !important;
+    }
+
     /* ============================================================
        VOICES SECTION
        ============================================================ */
@@ -916,7 +941,7 @@
 
     .voice__text {
       font-family: var(--font-display);
-      font-size: 1rem;
+      font-size: 1.15rem;
       font-style: italic;
       line-height: 1.6;
       color: var(--color-text-secondary);
@@ -931,14 +956,15 @@
     }
 
     .voice__name {
-      font-size: 0.85rem;
+      font-size: 0.95rem;
       font-weight: 500;
       color: var(--color-text);
     }
 
     .voice__role {
-      font-size: 0.75rem;
+      font-size: 0.8rem;
       color: var(--color-text-dim);
+      white-space: nowrap;
     }
 
     /* ============================================================
@@ -1180,8 +1206,8 @@
       </header>
 
       <div class="parts">
-        <!-- Part 1: Friction -->
-        <article class="part part--friction" data-href="#" data-disabled="true">
+        <!-- Part 1: Friction - Collaboration Framework -->
+        <article class="part part--friction" data-href="visualizations/collaboration-framework/">
           <div class="part__preview">
             <div class="part__preview-bg"></div>
           </div>
@@ -1193,9 +1219,9 @@
             </p>
             <div class="part__meta">
               <div class="part__tags">
-                <span class="part__tag part__tag--coming">Coming Soon</span>
+                <span class="part__tag part__tag--ready">Visualization Ready</span>
               </div>
-              <a href="#" class="part__action part__action--disabled" aria-label="Read Part 1">
+              <a href="visualizations/collaboration-framework/" class="part__action" aria-label="Explore Part 1">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
                 </svg>
@@ -1337,7 +1363,7 @@
             </p>
             <div class="voice__attribution">
               <span class="voice__name">Liz Danzico</span>
-              <span class="voice__role">Design Leader, Microsoft AI</span>
+              <span class="voice__role">VP of Design, Microsoft AI</span>
             </div>
           </div>
 
@@ -1367,7 +1393,7 @@
             </p>
             <div class="voice__attribution">
               <span class="voice__name">Larry Keeley</span>
-              <span class="voice__role">Co-founder, Doblin; Professor, IIT Institute of Design</span>
+              <span class="voice__role">Co-founder, Doblin; Innovation Scientist</span>
             </div>
           </div>
         </div>

@@ -31,7 +31,11 @@
       "Bash(npx @gltf-transform/cli copy:*)",
       "Bash(npx @gltf-transform/cli resize:*)",
       "Bash(npx @gltf-transform/cli inspect:*)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Skill(example-skills:pdf)",
+      "Skill(example-skills:webapp-testing)",
+      "Bash(pip3 install:*)",
+      "Bash(osascript:*)"
     ]
   }
 }

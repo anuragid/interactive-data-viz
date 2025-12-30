@@ -1,7 +1,7 @@
 # Project Status: Interactive Data Visualizations
 
-> **Last Updated:** December 21, 2025
-> **Current Focus:** Complementarity View orb animation polish
+> **Last Updated:** December 29, 2025
+> **Current Focus:** Four Rungs visualization complete, cross-visualization consistency
 
 ---
 
@@ -54,10 +54,14 @@ intentional-ai-deployment/
 │       └── tooltip.js            # Shared tooltip component
 │
 ├── visualizations/
-│   └── complementarity-view/     # The Complementarity View (FUNCTIONAL)
+│   ├── complementarity-view/     # Part 3: What AI Can't See (FUNCTIONAL)
+│   │   ├── index.html            # HTML shell with embedded CSS
+│   │   ├── main.js               # Three.js visualization logic
+│   │   └── styles.css            # Additional styles
+│   │
+│   └── four-rungs/               # Part 2: Before You Automate (FUNCTIONAL)
 │       ├── index.html            # HTML shell with embedded CSS
-│       ├── main.js               # Three.js visualization logic
-│       └── styles.css            # Additional styles
+│       └── main.js               # Three.js visualization logic
 │
 ├── embed/
 │   └── loader.js                 # Embed loader for articles
@@ -158,9 +162,9 @@ float distanceFade = 1.0 - smoothstep(0.0, 20.0, radius);  // Extended from 5.0 
 - Increased animation speed (0.5 → 0.7)
 - Extended distance fade to maximum (5.0 → 20.0)
 
-### Typography
-- **Display:** Fraunces (elegant, variable font)
-- **Body:** DM Sans (clean, geometric)
+### Typography (Consistent Across All Pages)
+- **Display:** Cormorant Garamond (elegant serif)
+- **Body:** IBM Plex Sans (clean, professional)
 
 ### Color Palette
 ```css
@@ -269,9 +273,47 @@ Each orb has unique visual identity with orbiting/external elements for distinct
 
 ---
 
-### 2. The Four Rungs (PLANNED)
+### 2. The Four Rungs (FULLY FUNCTIONAL)
+
+**Status:** Complete with interactive view modes
+**Location:** `visualizations/four-rungs/`
 **Article Part:** Part 2
-**Concept:** Problem Abstraction Ladder — Human territory (Outcome, Approach) vs AI territory (Method, Execution)
+
+#### Concept
+The Problem Abstraction Ladder — shows why 84% of AI projects fail due to "rung-skipping" (starting at Method/Execution without defining Outcome/Approach).
+
+#### Visual Metaphor
+**Four stacked platforms** connected by a central conduit beam:
+- **Human Territory (Top, Warm Colors)**
+  - **Outcome** — "What does success look like?"
+  - **Approach** — "How will you create differentiated value?"
+- **Judgment Boundary (Middle)** — Rotating fog layer separating territories
+- **AI Territory (Bottom, Cool Colors)**
+  - **Method** — "What capabilities will we deploy?"
+  - **Execution** — "How will we implement day-to-day?"
+
+#### Color Palette
+```javascript
+outcome: 0xe8c496      // Soft gold (Human)
+approach: 0xd4b07a     // Warm amber (Human)
+boundary: 0xe0d8c8     // Cream/neutral (Judgment Boundary)
+method: 0x7a9cb8       // Steel blue (AI)
+execution: 0x6889a0    // Slate blue (AI)
+warning: 0xd4756a      // Dusty rose (84% stat)
+```
+
+#### Interactive Features
+- **View Modes:** "Recommended" (particles flow down) vs "Current" (particles flow up)
+- **Click-to-Focus:** Click any rung to see detail panel with description
+- **84% Statistic:** Shows in "Current" view mode (RAND Corporation, 2024)
+- **Judgment Boundary:** Rotating fog layer with shader-based noise
+- **Navigation:** Previous/Next buttons in detail panel
+
+#### Key Implementation Details
+- Platforms are hexagonal with glow effects
+- Central beam with gradient (warm top → cool bottom)
+- Particles flow based on view mode direction
+- Fog uses rotating FBM noise shader
 
 ### 3. The Friction Spectrum (PLANNED)
 **Article Part:** Part 4
@@ -306,10 +348,10 @@ The project uses a comprehensive design system defined in `shared/design-system.
 | Foreground | `--foreground` | `#f0ede8` (neutral-100) | Primary text |
 | Muted | `--foreground-muted` | `#a8a094` (neutral-400) | Secondary text, labels |
 
-### Typography
-- **Landing Page:** Fraunces (display) + DM Sans (body)
-- **Complementarity View:** Fraunces (display) + DM Sans (body) — now matches landing page
-- **Design System Default:** Cormorant Garamond (display) + Outfit (body)
+### Typography (Unified Dec 29, 2025)
+- **All Pages:** Cormorant Garamond (display) + IBM Plex Sans (body)
+- This applies to: Landing page, Complementarity View, Four Rungs, Design System
+- **Never deviate** — see `.claude/QUALITY_STANDARDS.md` for non-negotiables
 
 ### Spacing & Sizing
 Uses a consistent spacing scale: `--space-1` through `--space-24`
@@ -495,37 +537,55 @@ When starting a new session, read this file first.
 3. **Recent work?** Run `git log --oneline -5` to see recent commits
 4. **Plan file?** Check `.claude/plans/` for any active implementation plans
 
-### Current State (as of Dec 21, 2025)
+### Current State (as of Dec 29, 2025)
 - **Landing Page:** Complete with WebGL god rays effect
   - Starfield with multi-layer parallax and shooting stars
-  - God rays shader (recently tuned: fewer rays, less dense, dimmer center, faster, extended reach)
+  - God rays shader (tuned: fewer rays, less dense, dimmer center, faster, extended reach)
   - Bento grid series cards with animated backgrounds
-  - Smooth scroll reveals
-- **Complementarity View:** Fully enhanced with 24+ features including:
+  - Part 2 card now links to Four Rungs visualization
+  - **Typography:** Cormorant Garamond + IBM Plex Sans
+
+- **Complementarity View (Part 3):** Fully enhanced with 24+ features including:
   - Three view modes (Overview, See as AI, See as Human) with consistent dark transitions
   - Click-to-focus on orbs with detail panel and connection lines
   - Audio system (ambient soundscape, hover/focus sounds)
   - Visual effects (50 dust particles flowing downward, human breathing/heartbeat)
-  - **NEW: Each orb has unique orbiting/external elements** (sparks, gravity particles, wisps, etc.)
-  - **NEW: LED blue/white light for AI domain** (distinct from amber unobservables)
-  - **NEW: Typography matches landing page** (Fraunces + DM Sans)
-  - **NEW: All animations are smooth and cyclic** (no jerky resets)
+  - Each orb has unique orbiting/external elements (sparks, gravity particles, wisps, etc.)
+  - LED blue/white light for AI domain (distinct from amber unobservables)
+  - **Typography:** Cormorant Garamond + IBM Plex Sans
+  - All animations are smooth and cyclic (no jerky resets)
   - Auto-orbit idle mode, keyboard navigation, constellation lines
-  - Refined UI layout (view controls top center, legend bottom left vertical)
-  - Header layout with proper flexbox (title hugs left, quote fills right, single-line)
+  - View controls: consistent styling with Four Rungs (border-radius: 8px, etc.)
+
+- **Four Rungs (Part 2):** Complete with interactive view modes
+  - Two view modes: "Recommended" (down flow) and "Current" (up flow)
+  - 84% statistic with RAND Corporation citation
+  - Click-to-focus on rungs with detail panel
+  - Judgment Boundary with rotating fog shader
+  - Central conduit beam with gradient
+  - Particle system flowing based on view mode
+  - **Typography:** Cormorant Garamond + IBM Plex Sans
+
+- **Cross-Visualization Consistency (Dec 29):**
+  - Unified typography across all pages
+  - Matching view control styles (8px border-radius, same padding/fonts)
+  - Consistent insight overlay positioning
+  - Quality standards documented in `.claude/QUALITY_STANDARDS.md`
+
 - **Other Visualizations:** Planned but not started
 
 ### Key Design Decisions Made
 1. **Landing Page Aesthetic:** Observatory/exploratory feel (like a planetarium)
-2. **Typography:** Fraunces (display) + DM Sans (body) for both landing page AND Complementarity View
+2. **Typography:** Cormorant Garamond (display) + IBM Plex Sans (body) — UNIFIED across all pages
 3. **Three.js Version:** Locked to r128 for OrbitControls compatibility
 4. **No Build Tools:** Direct CDN loading for simplicity
 5. **View Transitions:** All mode changes go through dark phase first for consistency
 6. **Audio Default:** Off by default, user must click to enable
-7. **UI Layout:** View controls top center (pill), legend bottom left (vertical), PTZ center (floating), audio bottom right
+7. **UI Layout:** View controls top center (8px radius), legend bottom left, audio bottom right
 8. **God Rays:** WebGL shader implementation for performance and quality
 9. **Color Separation:** LED blue/white for AI's observable domain, amber for unobservables (no color conflict)
 10. **Animation Quality:** All animations must be continuous, smooth, cyclic — no visible resets or jerky movements
+11. **Cross-Visualization Consistency:** Same fonts, same tab styling, same positioning patterns
 
 ### Files to Review for Context
 1. `PROJECT_STATUS.md` — This file (start here)

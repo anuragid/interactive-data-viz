@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Friction Spectrum | Beautiful Seams</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>~</text></svg>">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+
+    <!-- Three.js r128 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <!-- GSAP -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+    <style>
+        :root {
+            --color-bg: #06080c;
+            --color-text: #f5f0e8;
+            --color-text-muted: rgba(245, 240, 232, 0.6);
+            --color-text-dim: rgba(245, 240, 232, 0.3);
+
+            /* Cool to Warm gradient */
+            --color-seamless: #22d3ee;      /* Cyan */
+            --color-visible: #60a5fa;       /* Blue */
+            --color-gated: #fbbf24;         /* Amber */
+            --color-human-only: #f59e0b;    /* Warm gold */
+
+            /* Accent */
+            --color-flow: #67e8f9;          /* Light cyan for flow */
+            --color-barrier: #fcd34d;       /* Golden barrier */
+
+            --font-display: 'Cormorant Garamond', Georgia, serif;
+            --font-body: 'IBM Plex Sans', -apple-system, sans-serif;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html, body {
+            height: 100%;
+            overflow: hidden;
+            background: var(--color-bg);
+            font-family: var(--font-body);
+            color: var(--color-text);
+        }
+
+        #canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Header - minimal during journey */
+        .header {
+            position: fixed;
+            top: 2rem;
+            left: 2rem;
+            z-index: 100;
+            opacity: 0;
+            transform: translateY(-20px);
+            transition: opacity 1s ease, transform 1s ease;
+        }
+
+        .header.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .header__title {
+            font-family: var(--font-display);
+            font-size: 1.6rem;
+            font-weight: 500;
+            letter-spacing: 0.02em;
+            color: var(--color-text);
+            margin-bottom: 0.3rem;
+        }
+
+        .header__subtitle {
+            font-family: var(--font-body);
+            font-size: 0.65rem;
+            font-weight: 300;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--color-text-muted);
+        }
+
+        /* Begin Journey button - the primary CTA */
+        .begin-journey {
+            position: fixed;
+            bottom: 15%;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 200;
+            opacity: 0;
+            transition: opacity 0.8s ease;
+        }
+
+        .begin-journey.visible {
+            opacity: 1;
+        }
+
+        .begin-journey.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .begin-btn {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            padding: 1rem 2.5rem;
+            background: transparent;
+            border: 1px solid rgba(103, 232, 249, 0.4);
+            border-radius: 100px;
+            font-family: var(--font-display);
+            font-size: 1.1rem;
+            font-weight: 500;
+            letter-spacing: 0.05em;
+            color: var(--color-flow);
+            cursor: pointer;
+            transition: all 0.4s ease;
+            backdrop-filter: blur(8px);
+        }
+
+        .begin-btn:hover {
+            background: rgba(103, 232, 249, 0.1);
+            border-color: rgba(103, 232, 249, 0.6);
+            transform: scale(1.02);
+            box-shadow: 0 0 30px rgba(103, 232, 249, 0.2);
+        }
+
+        .begin-btn__icon {
+            font-size: 1.2rem;
+            transition: transform 0.3s ease;
+        }
+
+        .begin-btn:hover .begin-btn__icon {
+            transform: translateX(4px);
+        }
+
+        /* Journey narration - appears during the journey */
+        .narration {
+            position: fixed;
+            bottom: 12%;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 150;
+            text-align: center;
+            max-width: 600px;
+            opacity: 0;
+            transition: opacity 0.8s ease;
+            pointer-events: none;
+        }
+
+        .narration.visible {
+            opacity: 1;
+        }
+
+        .narration__text {
+            font-family: var(--font-display);
+            font-style: italic;
+            font-size: 1.2rem;
+            line-height: 1.6;
+            color: var(--color-text);
+            text-shadow: 0 2px 20px rgba(0, 0, 0, 0.8);
+        }
+
+        .narration__zone {
+            display: block;
+            font-family: var(--font-body);
+            font-size: 0.6rem;
+            font-style: normal;
+            font-weight: 500;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            margin-top: 0.8rem;
+            opacity: 0.6;
+        }
+
+        /* Zone labels - appear as journey progresses */
+        .zone-label {
+            position: fixed;
+            z-index: 80;
+            pointer-events: none;
+            opacity: 0;
+            transform: translate(-50%, -50%);
+            transition: opacity 0.6s ease;
+            text-align: center;
+        }
+
+        .zone-label.visible {
+            opacity: 1;
+        }
+
+        .zone-label__name {
+            font-family: var(--font-display);
+            font-size: 1.3rem;
+            font-weight: 500;
+            letter-spacing: 0.03em;
+            text-shadow: 0 2px 15px rgba(0, 0, 0, 0.8);
+        }
+
+        .zone-label__stakes {
+            font-family: var(--font-body);
+            font-size: 0.55rem;
+            font-weight: 400;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--color-text-muted);
+            margin-top: 0.25rem;
+        }
+
+        .zone-label--seamless .zone-label__name { color: var(--color-seamless); }
+        .zone-label--visible .zone-label__name { color: var(--color-visible); }
+        .zone-label--gated .zone-label__name { color: var(--color-gated); }
+        .zone-label--human-only .zone-label__name { color: var(--color-human-only); }
+
+        /* Replay button - after journey completes */
+        .replay {
+            position: fixed;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 200;
+            opacity: 0;
+            transition: opacity 0.8s ease;
+            pointer-events: none;
+        }
+
+        .replay.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .replay-btn {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.6rem 1.5rem;
+            background: rgba(6, 8, 12, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 100px;
+            font-family: var(--font-body);
+            font-size: 0.7rem;
+            font-weight: 400;
+            letter-spacing: 0.05em;
+            color: var(--color-text-muted);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .replay-btn:hover {
+            border-color: rgba(255, 255, 255, 0.2);
+            color: var(--color-text);
+        }
+
+        /* Legend - bottom left, subtle */
+        .legend {
+            position: fixed;
+            bottom: 2rem;
+            left: 2rem;
+            z-index: 100;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.8s ease, transform 0.8s ease;
+        }
+
+        .legend.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .legend__title {
+            font-family: var(--font-body);
+            font-size: 0.5rem;
+            font-weight: 500;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--color-text-dim);
+            margin-bottom: 0.5rem;
+        }
+
+        .legend__item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.35rem;
+        }
+
+        .legend__line {
+            width: 20px;
+            height: 2px;
+            border-radius: 1px;
+        }
+
+        .legend__line--seamless { background: var(--color-seamless); }
+        .legend__line--visible { background: var(--color-visible); }
+        .legend__line--gated { background: var(--color-gated); }
+        .legend__line--human-only { background: var(--color-human-only); }
+
+        .legend__label {
+            font-family: var(--font-body);
+            font-size: 0.6rem;
+            font-weight: 300;
+            color: var(--color-text-muted);
+        }
+
+        /* Audio button */
+        .audio-btn {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.5rem 0.8rem;
+            background: rgba(6, 8, 12, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 4px;
+            font-family: var(--font-body);
+            font-size: 0.6rem;
+            font-weight: 300;
+            color: var(--color-text-muted);
+            cursor: pointer;
+            transition: all 0.25s ease;
+            opacity: 0;
+        }
+
+        .audio-btn.visible {
+            opacity: 1;
+        }
+
+        .audio-btn:hover {
+            border-color: rgba(255, 255, 255, 0.12);
+            color: var(--color-text);
+        }
+
+        .audio-btn.active {
+            border-color: rgba(103, 232, 249, 0.3);
+            color: var(--color-flow);
+        }
+
+        /* Controls hint */
+        .controls-hint {
+            position: fixed;
+            top: 2rem;
+            right: 2rem;
+            z-index: 90;
+            font-family: var(--font-body);
+            font-size: 0.55rem;
+            font-weight: 300;
+            color: var(--color-text-dim);
+            opacity: 0;
+            transition: opacity 0.8s ease;
+        }
+
+        .controls-hint.visible {
+            opacity: 1;
+        }
+
+        /* Mobile */
+        @media (max-width: 768px) {
+            .header { top: 1.5rem; left: 1.5rem; }
+            .header__title { font-size: 1.3rem; }
+
+            .begin-btn {
+                padding: 0.8rem 2rem;
+                font-size: 1rem;
+            }
+
+            .narration {
+                bottom: 15%;
+                padding: 0 1.5rem;
+            }
+
+            .narration__text { font-size: 1rem; }
+
+            .legend { bottom: 1.5rem; left: 1.5rem; }
+            .audio-btn { bottom: 1.5rem; right: 1.5rem; }
+
+            .zone-label__name { font-size: 1rem; }
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+
+    <!-- Header -->
+    <header class="header" id="header">
+        <h1 class="header__title">The Friction Spectrum</h1>
+        <p class="header__subtitle">Beautiful Seams</p>
+    </header>
+
+    <!-- Begin Journey CTA -->
+    <div class="begin-journey" id="beginJourney">
+        <button class="begin-btn" onclick="beginJourney()">
+            <span>Begin the Journey</span>
+            <span class="begin-btn__icon">→</span>
+        </button>
+    </div>
+
+    <!-- Journey Narration -->
+    <div class="narration" id="narration">
+        <p class="narration__text" id="narrationText"></p>
+        <span class="narration__zone" id="narrationZone"></span>
+    </div>
+
+    <!-- Zone Labels -->
+    <div class="zone-label zone-label--seamless" id="label-seamless">
+        <div class="zone-label__name">Seamless</div>
+        <div class="zone-label__stakes">Low Stakes</div>
+    </div>
+
+    <div class="zone-label zone-label--visible" id="label-visible">
+        <div class="zone-label__name">Visible</div>
+        <div class="zone-label__stakes">Learning Stakes</div>
+    </div>
+
+    <div class="zone-label zone-label--gated" id="label-gated">
+        <div class="zone-label__name">Gated</div>
+        <div class="zone-label__stakes">High Stakes</div>
+    </div>
+
+    <div class="zone-label zone-label--human-only" id="label-human-only">
+        <div class="zone-label__name">Human-Only</div>
+        <div class="zone-label__stakes">Constitutional</div>
+    </div>
+
+    <!-- Replay Button -->
+    <div class="replay" id="replay">
+        <button class="replay-btn" onclick="replayJourney()">
+            <span>↺</span>
+            <span>Watch Again</span>
+        </button>
+    </div>
+
+    <!-- Legend -->
+    <nav class="legend" id="legend">
+        <div class="legend__title">Stakes Increase →</div>
+        <div class="legend__item">
+            <span class="legend__line legend__line--seamless"></span>
+            <span class="legend__label">Seamless</span>
+        </div>
+        <div class="legend__item">
+            <span class="legend__line legend__line--visible"></span>
+            <span class="legend__label">Visible</span>
+        </div>
+        <div class="legend__item">
+            <span class="legend__line legend__line--gated"></span>
+            <span class="legend__label">Gated</span>
+        </div>
+        <div class="legend__item">
+            <span class="legend__line legend__line--human-only"></span>
+            <span class="legend__label">Human-Only</span>
+        </div>
+    </nav>
+
+    <!-- Audio -->
+    <button class="audio-btn" id="audioBtn" onclick="toggleAudio()">
+        <span class="audio-icon">♪</span>
+        <span class="audio-label">Sound</span>
+    </button>
+
+    <!-- Controls Hint -->
+    <div class="controls-hint" id="controlsHint">
+        Drag to orbit · Scroll to zoom
+    </div>
+
+    <script src="main.js"></script>
+</body>
+</html>
