@@ -28,7 +28,7 @@
             --color-seamless: #22d3ee;
             --color-visible: #60a5fa;
             --color-gated: #fbbf24;
-            --color-human-only: #dc2626;
+            --color-human-only: #8b5cf6;
 
             --font-display: 'Cormorant Garamond', Georgia, serif;
             --font-body: 'IBM Plex Sans', -apple-system, sans-serif;
@@ -157,8 +157,8 @@
 
         .view-btn.active[data-zone="human-only"] {
             color: var(--color-human-only);
-            border-color: rgba(220, 38, 38, 0.3);
-            background: rgba(220, 38, 38, 0.08);
+            border-color: rgba(139, 92, 246, 0.3);
+            background: rgba(139, 92, 246, 0.08);
         }
 
         .view-btn__icon {
@@ -206,16 +206,17 @@
         }
 
         /* Zone Controls - For interactive zones */
+        /* Positioned relative to viewport center, not absolute from bottom */
         .zone-controls {
             position: fixed;
-            bottom: 4rem;
+            top: 72%;
             left: 50%;
             transform: translateX(-50%);
             z-index: 100;
             display: flex;
             align-items: center;
-            gap: 1rem;
-            padding: 0.6rem 1.2rem;
+            gap: 0.8rem;
+            padding: 0.5rem 1rem;
             background: rgba(8, 8, 12, 0.85);
             border: 1px solid rgba(255, 255, 255, 0.08);
             border-radius: 8px;
@@ -238,65 +239,11 @@
             color: var(--color-text-muted);
         }
 
-        .zone-controls__slider-container {
-            position: relative;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-
-        .zone-controls__ticks {
-            position: relative;
-            width: 140px;
-            height: 8px;
-            display: flex;
-            justify-content: space-between;
-            padding: 0 7px; /* Half of thumb width to align */
-        }
-
-        .zone-controls__tick {
-            width: 2px;
-            height: 6px;
-            background: rgba(255, 255, 255, 0.25);
-            border-radius: 1px;
-        }
-
-        .zone-controls__tick--red { background: rgba(220, 38, 38, 0.6); }
-        .zone-controls__tick--amber { background: rgba(251, 191, 36, 0.6); }
-        .zone-controls__tick--green { background: rgba(34, 197, 94, 0.6); }
-
-        .zone-controls__tick-labels {
-            position: relative;
-            width: 140px;
-            height: 12px;
-            display: flex;
-            justify-content: space-between;
-            padding: 0 2px;
-            margin-top: 2px;
-        }
-
-        .zone-controls__tick-label {
-            font-family: var(--font-body);
-            font-size: 0.45rem;
-            font-weight: 400;
-            color: var(--color-text-dim);
-            text-align: center;
-            width: 28px;
-        }
-
         .zone-controls__slider {
             -webkit-appearance: none;
-            width: 140px;
+            width: 120px;
             height: 4px;
-            background: linear-gradient(
-                to right,
-                rgba(220, 38, 38, 0.4) 0%,
-                rgba(220, 38, 38, 0.4) 33%,
-                rgba(251, 191, 36, 0.4) 33%,
-                rgba(251, 191, 36, 0.4) 66%,
-                rgba(34, 197, 94, 0.4) 66%,
-                rgba(34, 197, 94, 0.4) 100%
-            );
+            background: rgba(251, 191, 36, 0.25);
             border-radius: 2px;
             outline: none;
             cursor: pointer;
@@ -304,35 +251,38 @@
 
         .zone-controls__slider::-webkit-slider-thumb {
             -webkit-appearance: none;
-            width: 16px;
-            height: 16px;
+            width: 14px;
+            height: 14px;
             background: var(--color-gated);
             border-radius: 50%;
             cursor: pointer;
-            transition: transform 0.15s ease, background 0.2s ease;
-            box-shadow: 0 0 8px rgba(251, 191, 36, 0.4);
+            transition: transform 0.15s ease;
+            box-shadow: 0 0 6px rgba(251, 191, 36, 0.3);
         }
 
         .zone-controls__slider::-webkit-slider-thumb:hover {
-            transform: scale(1.15);
+            transform: scale(1.1);
         }
 
         .zone-controls__slider::-moz-range-thumb {
-            width: 16px;
-            height: 16px;
+            width: 14px;
+            height: 14px;
             background: var(--color-gated);
             border-radius: 50%;
             border: none;
             cursor: pointer;
-            box-shadow: 0 0 8px rgba(251, 191, 36, 0.4);
+            box-shadow: 0 0 6px rgba(251, 191, 36, 0.3);
         }
 
-        /* Legend - Bottom left (matches Four Rungs) */
+        /* Legend */
         .legend {
             position: fixed;
             bottom: 1.5rem;
             left: 1.5rem;
             z-index: 100;
+            display: flex;
+            flex-direction: column;
+            gap: 0.3rem;
             opacity: 0;
             transform: translateY(10px);
             transition: opacity 0.8s ease, transform 0.8s ease;
@@ -343,22 +293,6 @@
             transform: translateY(0);
         }
 
-        .legend__title {
-            font-family: var(--font-body);
-            font-size: 0.5rem;
-            font-weight: 500;
-            letter-spacing: 0.12em;
-            text-transform: uppercase;
-            color: var(--color-text-dim);
-            margin-bottom: 0.3rem;
-        }
-
-        .legend__items {
-            display: flex;
-            flex-direction: column;
-            gap: 0.25rem;
-        }
-
         .legend__item {
             display: flex;
             align-items: center;
@@ -366,21 +300,28 @@
         }
 
         .legend__dot {
-            width: 5px;
-            height: 5px;
+            width: 8px;
+            height: 8px;
             border-radius: 50%;
         }
 
-        .legend__dot--seamless { background: var(--color-seamless); }
-        .legend__dot--visible { background: var(--color-visible); }
-        .legend__dot--gated { background: var(--color-gated); }
-        .legend__dot--human-only { background: var(--color-human-only); }
+        .legend__dot--1 {
+            background: var(--color-seamless);
+            box-shadow: 0 0 4px var(--color-seamless);
+        }
+
+        .legend__dot--2 {
+            background: #f5a623;
+            box-shadow: 0 0 4px rgba(245, 166, 35, 0.5);
+        }
 
         .legend__label {
             font-family: var(--font-body);
-            font-size: 0.6rem;
-            font-weight: 300;
-            color: var(--color-text-muted);
+            font-size: 0.55rem;
+            font-weight: 400;
+            color: var(--color-text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
         }
 
         /* Controls Hint - Bottom center (matches Four Rungs) */
@@ -623,45 +564,22 @@
 
     <!-- Zone Controls - Gate Slider (shown only for Gated zone) -->
     <div class="zone-controls" id="zoneControls">
-        <span class="zone-controls__label">🔒 Closed</span>
-        <div class="zone-controls__slider-container">
-            <div class="zone-controls__ticks">
-                <span class="zone-controls__tick zone-controls__tick--red"></span>
-                <span class="zone-controls__tick zone-controls__tick--amber"></span>
-                <span class="zone-controls__tick zone-controls__tick--green"></span>
-            </div>
-            <input type="range" class="zone-controls__slider" id="gateSlider" min="0" max="100" value="0"
-                   oninput="updateGate(this.value, false)"
-                   onchange="snapGate(this.value)">
-            <div class="zone-controls__tick-labels">
-                <span class="zone-controls__tick-label">Closed</span>
-                <span class="zone-controls__tick-label">Review</span>
-                <span class="zone-controls__tick-label">Open</span>
-            </div>
-        </div>
-        <span class="zone-controls__label">Open 🔓</span>
+        <span class="zone-controls__label">Closed</span>
+        <input type="range" class="zone-controls__slider" id="gateSlider" min="0" max="100" value="0"
+               oninput="updateGate(this.value, false)"
+               onchange="snapGate(this.value)">
+        <span class="zone-controls__label">Open</span>
     </div>
 
-    <!-- Legend -->
+    <!-- Legend - Dynamic per zone -->
     <nav class="legend" id="legend">
-        <div class="legend__title">Stakes Increase →</div>
-        <div class="legend__items">
-            <div class="legend__item">
-                <span class="legend__dot legend__dot--seamless"></span>
-                <span class="legend__label">Seamless</span>
-            </div>
-            <div class="legend__item">
-                <span class="legend__dot legend__dot--visible"></span>
-                <span class="legend__label">Visible</span>
-            </div>
-            <div class="legend__item">
-                <span class="legend__dot legend__dot--gated"></span>
-                <span class="legend__label">Gated</span>
-            </div>
-            <div class="legend__item">
-                <span class="legend__dot legend__dot--human-only"></span>
-                <span class="legend__label">Human-Only</span>
-            </div>
+        <div class="legend__item" id="legendItem1">
+            <span class="legend__dot" id="legendDot1"></span>
+            <span class="legend__label" id="legendLabel1">AI</span>
+        </div>
+        <div class="legend__item" id="legendItem2">
+            <span class="legend__dot" id="legendDot2"></span>
+            <span class="legend__label" id="legendLabel2">Human</span>
         </div>
     </nav>
 

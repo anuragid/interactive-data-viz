@@ -21,7 +21,7 @@ const CONFIG = {
         seamless: 0x22d3ee,
         visible: 0x60a5fa,
         gated: 0xfbbf24,
-        humanOnly: 0xdc2626,
+        humanOnly: 0x8b5cf6, // Violet - wisdom, judgment, dignity
     },
 };
 
@@ -61,7 +61,7 @@ const ZONES = {
         description: 'The barrier is absolute. Human decides, AI advises at most. Some choices belong to us alone.',
         examples: 'Hiring decisions, judicial rulings, life-altering medical choices',
         color: CONFIG.colors.humanOnly,
-        colorHex: '#dc2626',
+        colorHex: '#8b5cf6',
     },
 };
 
@@ -91,15 +91,15 @@ function init() {
     scene.background = new THREE.Color(CONFIG.colors.bg);
     scene.fog = new THREE.Fog(CONFIG.colors.bg, 15, 40);
 
-    // Camera
+    // Camera - front view, objects rotate on their own axis
     camera = new THREE.PerspectiveCamera(
         50,
         window.innerWidth / window.innerHeight,
         0.1,
         100
     );
-    camera.position.set(0, 5, 12);
-    camera.lookAt(0, 2, 0);
+    camera.position.set(0, 3, 12);
+    camera.lookAt(0, 1.5, 0);
 
     // Renderer
     const canvas = document.getElementById('canvas');
@@ -111,15 +111,15 @@ function init() {
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
-    // Controls
+    // Controls - front view with orbit ability
     controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
     controls.enablePan = false;
-    controls.minDistance = 6;
-    controls.maxDistance = 20;
+    controls.minDistance = 8;
+    controls.maxDistance = 25;
     controls.maxPolarAngle = Math.PI * 0.65;
-    controls.target.set(0, 2, 0);
+    controls.target.set(0, 1.5, 0);
 
     // Lighting
     setupLighting();
@@ -166,6 +166,7 @@ function createZone(zoneId) {
     particles = [];
 
     zoneGroup = new THREE.Group();
+    zoneGroup.scale.setScalar(0.8); // 20% smaller
     scene.add(zoneGroup);
 
     const zone = ZONES[zoneId];
@@ -186,33 +187,38 @@ function createZone(zoneId) {
 
     // Update 3D label
     updateZoneLabel(zone);
+
+    // Update legend for this zone
+    updateLegend(zoneId);
 }
 
 function createPlatform(color) {
-    const geometry = new THREE.CylinderGeometry(3.5, 3.7, 0.15, 64);
-    const material = new THREE.MeshStandardMaterial({
-        color: color,
-        emissive: color,
-        emissiveIntensity: 0.08,
-        roughness: 0.6,
-        metalness: 0.3,
-    });
-    const platform = new THREE.Mesh(geometry, material);
-    platform.position.y = -0.08;
-    zoneGroup.add(platform);
-
-    // Subtle glow ring
-    const ringGeo = new THREE.RingGeometry(3.3, 3.8, 64);
-    const ringMat = new THREE.MeshBasicMaterial({
-        color: color,
-        transparent: true,
-        opacity: 0.1,
-        side: THREE.DoubleSide,
-    });
-    const ring = new THREE.Mesh(ringGeo, ringMat);
-    ring.rotation.x = -Math.PI / 2;
-    ring.position.y = 0.01;
+    // Clean, minimal platform - just a subtle ring
+    const ring = new THREE.Mesh(
+        new THREE.TorusGeometry(3, 0.04, 16, 64),
+        new THREE.MeshBasicMaterial({
+            color: color,
+            transparent: true,
+            opacity: 0.6,
+        })
+    );
+    ring.rotation.x = Math.PI / 2;
+    ring.position.y = 0;
     zoneGroup.add(ring);
+
+    // Very subtle disc
+    const disc = new THREE.Mesh(
+        new THREE.CircleGeometry(3, 64),
+        new THREE.MeshBasicMaterial({
+            color: color,
+            transparent: true,
+            opacity: 0.04,
+            side: THREE.DoubleSide,
+        })
+    );
+    disc.rotation.x = -Math.PI / 2;
+    disc.position.y = -0.01;
+    zoneGroup.add(disc);
 }
 
 function updateZoneLight(color) {
@@ -240,209 +246,510 @@ function updateZoneLabel(zone) {
     }
 }
 
+// Legend configuration per zone
+const LEGEND_CONFIG = {
+    seamless: {
+        item1: { label: 'Source A', color: '#93c5fd' },
+        item2: { label: 'Source B', color: '#5eead4' },
+    },
+    visible: {
+        item1: { label: 'AI', color: '#22d3ee' },
+        item2: { label: 'Human', color: '#f5a623' },
+    },
+    gated: {
+        item1: { label: 'Requests', color: '#fbbf24' },
+        item2: null, // Hidden
+    },
+    'human-only': {
+        item1: { label: 'AI', color: '#8b5cf6' },
+        item2: { label: 'Human', color: '#f5f0e8' },
+    },
+};
+
+function updateLegend(zoneId) {
+    const config = LEGEND_CONFIG[zoneId];
+    if (!config) return;
+
+    const dot1 = document.getElementById('legendDot1');
+    const label1 = document.getElementById('legendLabel1');
+    const item1 = document.getElementById('legendItem1');
+    const dot2 = document.getElementById('legendDot2');
+    const label2 = document.getElementById('legendLabel2');
+    const item2 = document.getElementById('legendItem2');
+
+    // Item 1
+    if (config.item1 && dot1 && label1 && item1) {
+        dot1.style.background = config.item1.color;
+        dot1.style.boxShadow = `0 0 4px ${config.item1.color}`;
+        label1.textContent = config.item1.label;
+        item1.style.display = 'flex';
+    }
+
+    // Item 2
+    if (item2) {
+        if (config.item2 && dot2 && label2) {
+            dot2.style.background = config.item2.color;
+            dot2.style.boxShadow = `0 0 4px ${config.item2.color}`;
+            label2.textContent = config.item2.label;
+            item2.style.display = 'flex';
+        } else {
+            item2.style.display = 'none';
+        }
+    }
+}
+
 // ============================================================
-// SEAMLESS ZONE - Invisible flow
+// SEAMLESS ZONE - Two streams merge into indistinguishable vortex
+// Particles evenly distributed along path for clear shape visibility
 // ============================================================
 function createSeamlessScene(zone) {
-    // Transparent sphere containing invisible flow
-    const sphereGeo = new THREE.SphereGeometry(2.2, 32, 32);
-    const sphereMat = new THREE.MeshPhysicalMaterial({
-        color: zone.color,
-        transparent: true,
-        opacity: 0.04,
-        roughness: 0.1,
-        transmission: 0.95,
-    });
-    const sphere = new THREE.Mesh(sphereGeo, sphereMat);
-    sphere.position.y = 2.5;
-    zoneGroup.add(sphere);
-    zoneGroup.userData.sphere = sphere;
+    const streamAColor = 0x93c5fd;  // Light blue
+    const streamBColor = 0x5eead4;  // Teal
+    const mergedColor = 0x22d3ee;   // Cyan - blended
 
-    // Particles that flow nearly invisibly
-    for (let i = 0; i < 35; i++) {
-        const geo = new THREE.SphereGeometry(0.06, 8, 8);
-        const mat = new THREE.MeshBasicMaterial({
-            color: zone.color,
-            transparent: true,
-            opacity: 0.15, // Barely visible
-        });
-        const p = new THREE.Mesh(geo, mat);
+    const mergeHeight = 1.2;
+    const vortexHeight = 4.5;
+    const particleCount = 18;
+
+    // Stream A particles - evenly distributed along path with slight variation
+    for (let i = 0; i < particleCount; i++) {
+        const p = new THREE.Mesh(
+            new THREE.SphereGeometry(0.1, 24, 24),
+            new THREE.MeshBasicMaterial({
+                color: streamAColor,
+                transparent: true,
+                opacity: 0.8,
+            })
+        );
+        // Evenly spaced progress with small random offset for organic feel
+        const baseProgress = i / particleCount;
+        const randomOffset = (Math.random() - 0.5) * 0.03;
         p.userData = {
-            angle: Math.random() * Math.PI * 2,
-            radius: 0.8 + Math.random() * 1.2,
-            speed: 0.4 + Math.random() * 0.4,
-            yOffset: Math.random() * 3,
-            ySpeed: 0.25 + Math.random() * 0.25,
+            type: 'streamA',
+            progress: (baseProgress + randomOffset + 1) % 1,
+            speed: 0.0014 + Math.random() * 0.0004, // Tighter speed range
+            startX: -2.5,
+            startZ: (Math.random() - 0.5) * 0.5,
+            originalColor: streamAColor,
+            mergedColor: mergedColor,
         };
         zoneGroup.add(p);
         particles.push(p);
     }
+
+    // Stream B particles - evenly distributed, offset from stream A
+    for (let i = 0; i < particleCount; i++) {
+        const p = new THREE.Mesh(
+            new THREE.SphereGeometry(0.1, 24, 24),
+            new THREE.MeshBasicMaterial({
+                color: streamBColor,
+                transparent: true,
+                opacity: 0.8,
+            })
+        );
+        // Offset by half a particle spacing from stream A
+        const baseProgress = (i + 0.5) / particleCount;
+        const randomOffset = (Math.random() - 0.5) * 0.03;
+        p.userData = {
+            type: 'streamB',
+            progress: (baseProgress + randomOffset + 1) % 1,
+            speed: 0.0014 + Math.random() * 0.0004,
+            startX: 2.5,
+            startZ: (Math.random() - 0.5) * 0.5,
+            originalColor: streamBColor,
+            mergedColor: mergedColor,
+        };
+        zoneGroup.add(p);
+        particles.push(p);
+    }
+
+    zoneGroup.userData.mergeHeight = mergeHeight;
+    zoneGroup.userData.vortexHeight = vortexHeight;
 }
 
 function animateSeamless() {
     if (!zoneGroup) return;
 
+    const mergeHeight = zoneGroup.userData.mergeHeight || 1.2;
+    const vortexHeight = zoneGroup.userData.vortexHeight || 4.5;
+    const mergePoint = 0.35;  // Progress point where merge begins
+
     particles.forEach(p => {
-        if (!p.userData || p.userData.angle === undefined) return;
-        p.userData.angle += p.userData.speed * 0.012;
-        p.userData.yOffset += p.userData.ySpeed * 0.015;
-        if (p.userData.yOffset > 4) p.userData.yOffset = 0;
+        if (!p.userData || p.userData.progress === undefined) return;
 
-        p.position.x = Math.cos(p.userData.angle) * p.userData.radius;
-        p.position.y = 0.8 + p.userData.yOffset;
-        p.position.z = Math.sin(p.userData.angle) * p.userData.radius;
+        // Advance progress
+        p.userData.progress += p.userData.speed;
+        if (p.userData.progress > 1) {
+            p.userData.progress = 0;
+        }
+
+        const prog = p.userData.progress;
+        const isStreamA = p.userData.type === 'streamA';
+
+        if (prog < mergePoint) {
+            // BEFORE MERGE: Distinct streams approaching center
+            // Linear interpolation from start position toward center
+            const t = prog / mergePoint;
+            const startX = p.userData.startX;
+
+            p.position.x = startX * (1 - t);
+            p.position.y = mergeHeight + t * 0.3;
+            p.position.z = p.userData.startZ * (1 - t * 0.5);
+
+            // Keep original color - distinguishable
+            p.material.color.setHex(p.userData.originalColor);
+            p.material.opacity = 0.85;
+
+        } else {
+            // AFTER MERGE: Rotating vortex, indistinguishable
+            const vortexProg = (prog - mergePoint) / (1 - mergePoint);
+
+            // Spiral upward - gentle rotation
+            const angle = vortexProg * Math.PI * 3 + (isStreamA ? 0 : Math.PI); // Offset streams
+            const radius = 0.3 + vortexProg * 0.8; // Expands slightly as it rises
+
+            p.position.x = Math.cos(angle + time * 0.4) * radius; // Slower rotation
+            p.position.z = Math.sin(angle + time * 0.4) * radius;
+            p.position.y = mergeHeight + vortexProg * (vortexHeight - mergeHeight);
+
+            // Transition to merged color (indistinguishable)
+            const colorBlend = Math.min(1, vortexProg * 3); // Quick blend
+            const origColor = new THREE.Color(p.userData.originalColor);
+            const mergeColor = new THREE.Color(p.userData.mergedColor);
+            const blendedColor = origColor.lerp(mergeColor, colorBlend);
+            p.material.color.copy(blendedColor);
+
+            // Fade out near top
+            p.material.opacity = 0.85 * (1 - vortexProg * 0.6);
+        }
     });
+}
 
-    // Gentle sphere breathing
-    if (zoneGroup.userData.sphere) {
-        const breathe = 1 + Math.sin(time * 0.8) * 0.03;
-        zoneGroup.userData.sphere.scale.setScalar(breathe);
-    }
+// Smooth interpolation helper
+function smoothstep(t) {
+    return t * t * (3 - 2 * t);
+}
+
+// Quadratic bezier helper
+function quadBezier(p0, p1, p2, t) {
+    const mt = 1 - t;
+    return mt * mt * p0 + 2 * mt * t * p1 + t * t * p2;
 }
 
 // ============================================================
-// VISIBLE ZONE - Illuminated seams
+// VISIBLE ZONE - Holographic Structures Built Together
+// AI (cyan) and Human (orange) collaboratively build detailed
+// holographic structures. Wireframe + glow + transparency.
+// "Beautiful seams" - you can see who built what.
 // ============================================================
+
+// Helper: Create clean glass material - NO wireframes
+function createGlassMat(color, opacity = 0.5) {
+    return new THREE.MeshStandardMaterial({
+        color: color,
+        emissive: color,
+        emissiveIntensity: 0.3,
+        transparent: true,
+        opacity: opacity,
+        roughness: 0.1,
+        metalness: 0.3,
+        side: THREE.DoubleSide,
+    });
+}
+
+// Helper: Create a clean glass piece - smooth, no wireframe clutter
+function createHoloPiece(geometry, color) {
+    const mesh = new THREE.Mesh(geometry, createGlassMat(color, 0.5));
+    mesh.userData.solid = mesh;
+    return mesh;
+}
+
+// Simple structure: alternating blocks clearly showing AI vs Human contributions
+const HOLO_STRUCTURES = [
+    {
+        name: 'blocks',
+        buildTime: 6000,
+        holdTime: 8000,
+        fadeTime: 2000,
+        create: (aiColor, humanColor) => {
+            const pieces = [];
+
+            // Simple stack of alternating blocks - clearly shows "who built what"
+            const blockHeight = 0.6;
+            const labels = ['AI', 'Human', 'AI', 'Human', 'AI'];
+
+            for (let i = 0; i < 5; i++) {
+                const isAI = i % 2 === 0;
+                const block = createHoloPiece(
+                    new THREE.BoxGeometry(1.4, blockHeight, 0.8),
+                    isAI ? aiColor : humanColor
+                );
+                block.userData.targetPos = new THREE.Vector3(0, 0.5 + i * (blockHeight + 0.1), 0);
+                block.userData.isAI = isAI;
+                block.userData.delay = i * 500;
+                pieces.push(block);
+            }
+
+            return pieces;
+        },
+    },
+];
+
 function createVisibleScene(zone) {
-    // Crystal with glowing edges (the seams)
-    const icoGeo = new THREE.IcosahedronGeometry(1.8, 0);
-    const icoMat = new THREE.MeshPhysicalMaterial({
-        color: zone.color,
-        transparent: true,
-        opacity: 0.15,
-        roughness: 0.2,
-        transmission: 0.7,
-    });
-    const crystal = new THREE.Mesh(icoGeo, icoMat);
-    crystal.position.y = 2.5;
-    zoneGroup.add(crystal);
-    zoneGroup.userData.crystal = crystal;
+    const aiColor = 0x22d3ee;    // Cyan
+    const humanColor = 0xf5a623; // Warm orange/amber
 
-    // Glowing edges (the beautiful seams)
-    const edgeGeo = new THREE.EdgesGeometry(icoGeo);
-    const edgeMat = new THREE.LineBasicMaterial({
-        color: zone.color,
-        transparent: true,
-        opacity: 0.85,
-    });
-    const edges = new THREE.LineSegments(edgeGeo, edgeMat);
-    edges.position.y = 2.5;
-    zoneGroup.add(edges);
-    zoneGroup.userData.edges = edges;
+    // Store colors and state
+    zoneGroup.userData.aiColor = aiColor;
+    zoneGroup.userData.humanColor = humanColor;
+    zoneGroup.userData.currentStructure = 0;
+    zoneGroup.userData.structurePhase = 'building';
+    zoneGroup.userData.phaseStartTime = performance.now();
+    zoneGroup.userData.pieces = [];
+    zoneGroup.userData.structureGroup = new THREE.Group();
+    zoneGroup.add(zoneGroup.userData.structureGroup);
 
-    // Particles orbiting vertices
-    const vertices = [
-        new THREE.Vector3(0, 1.8, 0),
-        new THREE.Vector3(0, -1.8, 0),
-        new THREE.Vector3(1.8, 0, 0),
-        new THREE.Vector3(-1.8, 0, 0),
-        new THREE.Vector3(0, 0, 1.8),
-        new THREE.Vector3(0, 0, -1.8),
-    ];
+    // Create first structure
+    createHoloStructure(0);
+}
 
-    for (let i = 0; i < 18; i++) {
-        const geo = new THREE.SphereGeometry(0.05, 8, 8);
-        const mat = new THREE.MeshBasicMaterial({
-            color: zone.color,
-            transparent: true,
-            opacity: 0.75,
-        });
-        const p = new THREE.Mesh(geo, mat);
-        p.userData = {
-            vertex: i % vertices.length,
-            orbitAngle: Math.random() * Math.PI * 2,
-            orbitRadius: 0.25 + Math.random() * 0.2,
-            orbitSpeed: 0.8 + Math.random() * 0.6,
-        };
-        zoneGroup.add(p);
-        particles.push(p);
+function createHoloStructure(structureIndex) {
+    if (!zoneGroup || !zoneGroup.userData) return;
+
+    const structure = HOLO_STRUCTURES[structureIndex];
+    const aiColor = zoneGroup.userData.aiColor;
+    const humanColor = zoneGroup.userData.humanColor;
+    const structureGroup = zoneGroup.userData.structureGroup;
+
+    // Clear old pieces
+    while (structureGroup.children.length > 0) {
+        structureGroup.remove(structureGroup.children[0]);
     }
-    zoneGroup.userData.vertices = vertices;
+    zoneGroup.userData.pieces = [];
+
+    // Create new pieces
+    const pieces = structure.create(aiColor, humanColor);
+    pieces.forEach(piece => {
+        // Start invisible and slightly scaled down
+        piece.scale.setScalar(0.01);
+        piece.userData.currentScale = 0.01;
+        piece.userData.currentOpacity = 0;
+
+        // Set initial position at target (will scale up in place)
+        if (piece.userData.targetPos) {
+            piece.position.copy(piece.userData.targetPos);
+        }
+        if (piece.userData.targetRot) {
+            piece.rotation.copy(piece.userData.targetRot);
+        }
+
+        structureGroup.add(piece);
+        zoneGroup.userData.pieces.push(piece);
+    });
+
+    // Reset phase
+    zoneGroup.userData.structurePhase = 'building';
+    zoneGroup.userData.phaseStartTime = performance.now();
+    structureGroup.rotation.y = 0;
 }
 
 function animateVisible() {
     if (!zoneGroup || !zoneGroup.userData) return;
 
-    // Crystal rotation
-    if (zoneGroup.userData.crystal) {
-        zoneGroup.userData.crystal.rotation.y += 0.004;
-        zoneGroup.userData.crystal.rotation.x = Math.sin(time * 0.25) * 0.08;
-    }
-    if (zoneGroup.userData.edges) {
-        zoneGroup.userData.edges.rotation.y += 0.004;
-        zoneGroup.userData.edges.rotation.x = Math.sin(time * 0.25) * 0.08;
-    }
+    const now = performance.now();
+    const structureIndex = zoneGroup.userData.currentStructure;
+    const structure = HOLO_STRUCTURES[structureIndex];
+    const phaseTime = now - zoneGroup.userData.phaseStartTime;
+    const pieces = zoneGroup.userData.pieces;
+    const structureGroup = zoneGroup.userData.structureGroup;
 
-    // Particles orbit vertices
-    const vertices = zoneGroup.userData.vertices || [];
-    particles.forEach(p => {
-        if (!p.userData || p.userData.vertex === undefined) return;
-        p.userData.orbitAngle += p.userData.orbitSpeed * 0.015;
-        const v = vertices[p.userData.vertex];
-        if (!v) return;
-        const r = p.userData.orbitRadius;
+    if (zoneGroup.userData.structurePhase === 'building') {
+        // Animate pieces materializing
+        let allComplete = true;
 
-        p.position.x = v.x * 0.85 + Math.cos(p.userData.orbitAngle) * r;
-        p.position.y = 2.5 + v.y * 0.85 + Math.sin(p.userData.orbitAngle * 0.7) * r * 0.4;
-        p.position.z = v.z * 0.85 + Math.sin(p.userData.orbitAngle) * r;
-    });
+        pieces.forEach(piece => {
+            const delay = piece.userData.delay || 0;
+            const buildDuration = 600;
+
+            if (phaseTime < delay) {
+                allComplete = false;
+            } else {
+                const t = Math.min(1, (phaseTime - delay) / buildDuration);
+                const eased = smoothstep(t);
+
+                // Scale up from center
+                piece.scale.setScalar(0.01 + eased * 0.99);
+
+                // Fade in materials
+                const targetOpacity = 0.5;
+                const wireOpacity = 0.9;
+
+                if (piece.userData.solid) {
+                    piece.userData.solid.material.opacity = eased * targetOpacity;
+                }
+                if (piece.userData.wireframe) {
+                    piece.userData.wireframe.material.opacity = eased * wireOpacity;
+                }
+
+                if (t < 1) allComplete = false;
+            }
+        });
+
+        // Check if building phase is complete
+        if (phaseTime > structure.buildTime || allComplete) {
+            zoneGroup.userData.structurePhase = 'holding';
+            zoneGroup.userData.phaseStartTime = now;
+        }
+
+    } else if (zoneGroup.userData.structurePhase === 'holding') {
+        // Gentle rotation while holding
+        structureGroup.rotation.y += 0.003;
+
+        // Subtle pulse effect
+        const pulse = Math.sin(now * 0.003) * 0.1;
+        pieces.forEach(piece => {
+            if (piece.userData.solid) {
+                piece.userData.solid.material.emissiveIntensity = 0.3 + pulse;
+            }
+        });
+
+        // Check if hold phase is complete
+        if (phaseTime > structure.holdTime) {
+            zoneGroup.userData.structurePhase = 'fading';
+            zoneGroup.userData.phaseStartTime = now;
+        }
+
+    } else if (zoneGroup.userData.structurePhase === 'fading') {
+        // Fade out and scale down
+        const t = Math.min(1, phaseTime / structure.fadeTime);
+        const eased = smoothstep(t);
+
+        pieces.forEach(piece => {
+            piece.scale.setScalar(1 - eased * 0.5);
+
+            if (piece.userData.solid) {
+                piece.userData.solid.material.opacity = 0.5 * (1 - eased);
+            }
+            if (piece.userData.wireframe) {
+                piece.userData.wireframe.material.opacity = 0.9 * (1 - eased);
+            }
+        });
+
+        // Check if fade is complete
+        if (phaseTime > structure.fadeTime) {
+            // Move to next structure
+            const nextIndex = (structureIndex + 1) % HOLO_STRUCTURES.length;
+            zoneGroup.userData.currentStructure = nextIndex;
+            createHoloStructure(nextIndex);
+        }
+    }
 }
 
 // ============================================================
-// GATED ZONE - Checkpoint with approval
+// GATED ZONE - Clean checkpoint with approval
+// Simple, clear glass-like structures
 // ============================================================
 function createGatedScene(zone) {
-    const pillarMat = new THREE.MeshStandardMaterial({
-        color: zone.color,
-        emissive: zone.color,
-        emissiveIntensity: 0.15,
-        roughness: 0.4,
-        metalness: 0.5,
-    });
+    const gateColor = zone.color;  // Amber
 
-    // Gate pillars
-    const leftPillar = new THREE.Mesh(new THREE.BoxGeometry(0.5, 4, 0.5), pillarMat);
-    leftPillar.position.set(-1.2, 2, 0);
-    zoneGroup.add(leftPillar);
+    // Clean glass material - no wireframes, smooth and clear
+    const createGlassMaterial = (opacity = 0.5) => {
+        return new THREE.MeshStandardMaterial({
+            color: gateColor,
+            emissive: gateColor,
+            emissiveIntensity: 0.3,
+            transparent: true,
+            opacity: opacity,
+            roughness: 0.1,
+            metalness: 0.3,
+        });
+    };
 
-    const rightPillar = new THREE.Mesh(new THREE.BoxGeometry(0.5, 4, 0.5), pillarMat);
-    rightPillar.position.set(1.2, 2, 0);
-    zoneGroup.add(rightPillar);
+    // Gate dimensions
+    const pillarHeight = 4.5;
+    const gateWidth = 2.6;
+    const gateOpeningHeight = 4.0; // Height of the opening area
+    const gateBottomY = 0.3;       // Bottom of the gate opening
+    const gateTopY = gateBottomY + gateOpeningHeight; // Top of the gate opening
 
-    // Horizontal bar (the gate)
-    const gateMat = new THREE.MeshStandardMaterial({
-        color: zone.color,
-        emissive: zone.color,
-        emissiveIntensity: 0.3,
-    });
-    const gateBar = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.3, 0.25), gateMat);
-    gateBar.position.set(0, 1.5, 0);
+    // Store gate bounds for animation
+    zoneGroup.userData.gateBottomY = gateBottomY;
+    zoneGroup.userData.gateTopY = gateTopY;
+    zoneGroup.userData.gateOpeningHeight = gateOpeningHeight;
+    zoneGroup.userData.gateWidth = gateWidth;
+
+    // === SIMPLE PILLARS ===
+    for (let side = -1; side <= 1; side += 2) {
+        const pillar = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.15, 0.18, pillarHeight, 32),
+            createGlassMaterial(0.5)
+        );
+        pillar.position.set(side * 1.5, pillarHeight / 2, 0);
+        zoneGroup.add(pillar);
+    }
+
+    // === TOP BAR ===
+    const topBar = new THREE.Mesh(
+        new THREE.BoxGeometry(3.3, 0.2, 0.15),
+        createGlassMaterial(0.5)
+    );
+    topBar.position.set(0, pillarHeight + 0.1, 0);
+    zoneGroup.add(topBar);
+
+    // === SHUTTER (Translucent layer that rolls up) ===
+    // When closed: covers entire opening. When open: rolled up, not visible.
+    const shutter = new THREE.Mesh(
+        new THREE.PlaneGeometry(gateWidth, gateOpeningHeight),
+        new THREE.MeshStandardMaterial({
+            color: gateColor,
+            emissive: gateColor,
+            emissiveIntensity: 0.15,
+            transparent: true,
+            opacity: 0.25,
+            side: THREE.DoubleSide,
+        })
+    );
+    // Position: centered in the opening when closed
+    shutter.position.set(0, gateBottomY + gateOpeningHeight / 2, 0);
+    zoneGroup.add(shutter);
+    zoneGroup.userData.shutter = shutter;
+
+    // === GATE BAR (Bottom edge of shutter) ===
+    const gateBar = new THREE.Mesh(
+        new THREE.BoxGeometry(gateWidth, 0.15, 0.1),
+        createGlassMaterial(0.7)
+    );
+    gateBar.position.set(0, gateBottomY, 0); // Start at bottom (closed)
     zoneGroup.add(gateBar);
     zoneGroup.userData.gateBar = gateBar;
 
-    // Status light at top
-    const lightGeo = new THREE.SphereGeometry(0.25, 16, 16);
-    const lightMat = new THREE.MeshBasicMaterial({ color: zone.color });
-    const statusLight = new THREE.Mesh(lightGeo, lightMat);
-    statusLight.position.set(0, 4.3, 0);
+    // === STATUS LIGHT - Simple sphere ===
+    const statusLight = new THREE.Mesh(
+        new THREE.SphereGeometry(0.18, 32, 32),
+        new THREE.MeshBasicMaterial({ color: 0xdc2626 })  // Red when closed
+    );
+    statusLight.position.set(0, pillarHeight + 0.5, 0);
     zoneGroup.add(statusLight);
     zoneGroup.userData.statusLight = statusLight;
 
-    // Particles queuing/waiting
-    for (let i = 0; i < 12; i++) {
-        const geo = new THREE.SphereGeometry(0.1, 8, 8);
-        const mat = new THREE.MeshBasicMaterial({
-            color: zone.color,
-            transparent: true,
-            opacity: 0.7,
-        });
-        const p = new THREE.Mesh(geo, mat);
+    // === PARTICLES - Behind the shutter, waiting to flow through ===
+    for (let i = 0; i < 15; i++) {
+        const p = new THREE.Mesh(
+            new THREE.SphereGeometry(0.08, 16, 16),
+            new THREE.MeshBasicMaterial({
+                color: gateColor,
+                transparent: true,
+                opacity: 0.8,
+            })
+        );
+        // Particles start behind the gate (negative Z)
         p.userData = {
-            lane: (Math.random() - 0.5) * 1.5,
-            height: 1.2 + Math.random() * 1.8,
-            progress: Math.random(),
-            speed: 0.002 + Math.random() * 0.002,
-            waiting: Math.random() > 0.5,
+            lane: (Math.random() - 0.5) * 1.8,
+            height: gateBottomY + 0.5 + Math.random() * (gateOpeningHeight - 1),
+            startZ: -2.5 - Math.random() * 1,  // Behind the gate
+            endZ: 3.5,                          // In front of gate
+            progress: Math.random() * 0.3,     // Start mostly behind gate
+            speed: 0.004 + Math.random() * 0.002,
         };
         zoneGroup.add(p);
         particles.push(p);
@@ -452,184 +759,277 @@ function createGatedScene(zone) {
 function animateGated() {
     if (!zoneGroup || !zoneGroup.userData) return;
 
-    // Gate bar position controlled by slider (1.5 = closed, 4.5 = open)
-    const targetGateY = 1.5 + gateOpenAmount * 3;
+    const gateBottomY = zoneGroup.userData.gateBottomY || 0.3;
+    const gateTopY = zoneGroup.userData.gateTopY || 4.3;
+    const gateOpeningHeight = zoneGroup.userData.gateOpeningHeight || 4.0;
+
+    // === GATE BAR - Moves up as gate opens ===
+    // 0% = bar at bottom, 100% = bar at top
     if (zoneGroup.userData.gateBar) {
-        zoneGroup.userData.gateBar.position.y += (targetGateY - zoneGroup.userData.gateBar.position.y) * 0.1;
+        const targetY = gateBottomY + gateOpenAmount * (gateTopY - gateBottomY);
+        zoneGroup.userData.gateBar.position.y += (targetY - zoneGroup.userData.gateBar.position.y) * 0.1;
     }
 
-    // Status light color based on gate position
+    // === SHUTTER - Rolls up with the bar ===
+    // When closed (0%): full height, centered in opening
+    // When open (100%): zero height (invisible), at top
+    // Key: top edge stays fixed at gateTopY, bottom edge rises with gate bar
+    if (zoneGroup.userData.shutter) {
+        const shutter = zoneGroup.userData.shutter;
+
+        // Target scale based on gate open amount
+        const targetScaleY = 1 - gateOpenAmount;
+
+        // Calculate target position based on TARGET scale (not current)
+        // This keeps top edge fixed at gateTopY during animation
+        const targetHeight = gateOpeningHeight * targetScaleY;
+        const targetPosY = gateTopY - targetHeight / 2;
+
+        // Animate both scale and position toward targets
+        shutter.scale.y += (targetScaleY - shutter.scale.y) * 0.1;
+        shutter.position.y += (targetPosY - shutter.position.y) * 0.1;
+
+        // Fade out as it opens
+        shutter.material.opacity = 0.25 * (1 - gateOpenAmount * 0.8);
+    }
+
+    // === STATUS LIGHT - Color based on open amount ===
     if (zoneGroup.userData.statusLight) {
-        const color = new THREE.Color();
-        if (gateOpenAmount < 0.33) {
-            color.setHex(0xdc2626); // Red - closed
-        } else if (gateOpenAmount < 0.66) {
-            color.setHex(0xfbbf24); // Amber - review
+        if (gateOpenAmount < 0.3) {
+            zoneGroup.userData.statusLight.material.color.setHex(0xdc2626); // Red - closed
+        } else if (gateOpenAmount < 0.7) {
+            zoneGroup.userData.statusLight.material.color.setHex(0xfbbf24); // Amber - partial
         } else {
-            color.setHex(0x22c55e); // Green - open
+            zoneGroup.userData.statusLight.material.color.setHex(0x22c55e); // Green - open
         }
-        zoneGroup.userData.statusLight.material.color = color;
     }
 
-    // Particles approach gate - behavior depends on gate state
-    // Closed: stopped, Review: paused for approval, Open: flowing
+    // === PARTICLES - Can only pass through the OPEN area (below shutter) ===
+    // Current bar position determines where the opening is
+    const currentBarY = gateBottomY + gateOpenAmount * (gateTopY - gateBottomY);
+
     particles.forEach(p => {
         if (!p.userData || p.userData.progress === undefined) return;
 
-        const atGate = p.userData.progress > 0.4 && p.userData.progress < 0.6;
+        const startZ = p.userData.startZ;
+        const endZ = p.userData.endZ;
+        const totalDistance = endZ - startZ;
 
-        // Determine flow based on gate state
-        let speedMult;
-        if (gateOpenAmount < 0.33) {
-            // Closed - stopped at gate
-            speedMult = 0;
-        } else if (gateOpenAmount < 0.66) {
-            // Review - cautious flow
-            speedMult = 0.5;
-        } else {
-            // Open - flowing freely
-            speedMult = 2;
-        }
+        // Gate position as progress value (where 0 is startZ, 1 is endZ)
+        const gateProgressPoint = (0 - startZ) / totalDistance;
 
-        if (atGate && speedMult === 0) {
-            // Waiting at gate - jitter in place
-            p.position.z = -0.8 + Math.sin(time * 5 + p.userData.progress * 10) * 0.03;
-        } else {
-            // Moving through
-            p.userData.progress += p.userData.speed * Math.max(speedMult, 0.1);
-            if (p.userData.progress > 1) {
-                p.userData.progress = 0;
+        // Current position as progress
+        const currentProgress = p.userData.progress;
+
+        // Check if this particle's height is in the OPEN area (below the bar)
+        const particleY = p.userData.height;
+        const isInOpenArea = particleY < currentBarY;
+
+        // Initialize stuck counter if needed
+        if (p.userData.stuckTime === undefined) p.userData.stuckTime = 0;
+
+        // Determine if particle can move through the gate
+        let canMove = true;
+        let speedMultiplier = 1;
+
+        // Is particle at/near the gate?
+        const atGate = currentProgress > gateProgressPoint - 0.08 && currentProgress < gateProgressPoint + 0.05;
+
+        if (atGate) {
+            // At the gate - can only pass if in the open area
+            if (!isInOpenArea) {
+                // Blocked by shutter - stop here
+                canMove = false;
+                p.userData.stuckTime += 1;
+            } else {
+                // In open area - flow through
+                speedMultiplier = 1;
+                p.userData.stuckTime = 0;
             }
-            p.position.z = -3 + p.userData.progress * 6;
+        } else if (currentProgress < gateProgressPoint) {
+            // Behind gate - approach
+            speedMultiplier = 0.6;
+            p.userData.stuckTime = 0;
+        } else {
+            // Past gate - move normally
+            speedMultiplier = 1;
+            p.userData.stuckTime = 0;
         }
 
+        // Move particle if allowed
+        if (canMove) {
+            p.userData.progress += p.userData.speed * speedMultiplier;
+        }
+
+        // Reset when reaching end OR if stuck at gate too long
+        const shouldReset = p.userData.progress > 1 || p.userData.stuckTime > 150;
+
+        if (shouldReset) {
+            p.userData.progress = 0;
+            p.userData.stuckTime = 0;
+            p.userData.lane = (Math.random() - 0.5) * 1.8;
+            // Give new random height - might be in open area next time
+            p.userData.height = gateBottomY + 0.3 + Math.random() * (gateOpeningHeight - 0.5);
+        }
+
+        // Position particle
+        p.position.z = startZ + p.userData.progress * totalDistance;
         p.position.x = p.userData.lane;
         p.position.y = p.userData.height;
+
+        // Opacity: dimmer behind shutter, brighter when through
+        if (p.position.z < 0) {
+            p.material.opacity = 0.6;
+        } else {
+            p.material.opacity = 0.9;
+        }
     });
 }
 
 // ============================================================
-// HUMAN-ONLY ZONE - The Sanctum
-// Human at center, protected by impassable boundary.
-// AI particles orbit outside as advisors - they can never enter.
-// Decisions emanate FROM the human outward.
+// HUMAN-ONLY ZONE - Dignified Human Authority
+// A warm, luminous human figure stands in quiet authority.
+// AI respectfully contained. Human decides with wisdom.
 // ============================================================
 function createHumanOnlyScene(zone) {
-    // Circular boundary - the impassable barrier
-    const boundaryRadius = 2.2;
+    const humanColor = 0xfaf5eb;      // Warm cream
+    const humanGlow = 0xe8c878;       // Warm gold
+    const barrierColor = zone.color;  // Violet
 
-    // Boundary ring on ground
-    const boundaryRingGeo = new THREE.RingGeometry(boundaryRadius - 0.05, boundaryRadius + 0.05, 64);
-    const boundaryRingMat = new THREE.MeshBasicMaterial({
-        color: zone.color,
-        transparent: true,
-        opacity: 0.6,
-        side: THREE.DoubleSide,
-    });
-    const boundaryRing = new THREE.Mesh(boundaryRingGeo, boundaryRingMat);
-    boundaryRing.rotation.x = -Math.PI / 2;
-    boundaryRing.position.y = 0.02;
-    zoneGroup.add(boundaryRing);
+    // Warm human material - smooth glass, no wireframe
+    const createHumanMaterial = (opacity = 0.6) => {
+        return new THREE.MeshStandardMaterial({
+            color: humanColor,
+            emissive: humanGlow,
+            emissiveIntensity: 0.4,
+            transparent: true,
+            opacity: opacity,
+            roughness: 0.2,
+            metalness: 0.2,
+        });
+    };
 
-    // Vertical barrier posts around the perimeter
-    const postMat = new THREE.MeshStandardMaterial({
-        color: zone.color,
-        emissive: zone.color,
-        emissiveIntensity: 0.2,
-        roughness: 0.4,
-        metalness: 0.5,
-    });
+    // Subtle barrier material
+    const createBarrierMaterial = (opacity = 0.3) => {
+        return new THREE.MeshStandardMaterial({
+            color: barrierColor,
+            emissive: barrierColor,
+            emissiveIntensity: 0.15,
+            transparent: true,
+            opacity: opacity,
+            roughness: 0.2,
+            metalness: 0.3,
+        });
+    };
 
-    for (let i = 0; i < 8; i++) {
-        const angle = (i / 8) * Math.PI * 2;
-        const post = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 3, 8), postMat);
-        post.position.set(
-            Math.cos(angle) * boundaryRadius,
-            1.5,
-            Math.sin(angle) * boundaryRadius
+    // === BARRIER - The threshold between AI and Human sides ===
+    // Single clean wall panel
+    const wall = new THREE.Mesh(
+        new THREE.BoxGeometry(4.5, 4.5, 0.05),
+        createBarrierMaterial(0.25)
+    );
+    wall.position.set(0, 2.25, -1.8);
+    zoneGroup.add(wall);
+
+    // Simple pillars
+    for (let side = -1; side <= 1; side += 2) {
+        const pillar = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.12, 0.15, 4.5, 32),
+            createBarrierMaterial(0.4)
         );
-        zoneGroup.add(post);
+        pillar.position.set(side * 2.4, 2.25, -1.8);
+        zoneGroup.add(pillar);
     }
 
-    // Central pedestal for human
-    const pedestalMat = new THREE.MeshStandardMaterial({
-        color: 0xf5f0e8,
-        emissive: 0xf5f0e8,
-        emissiveIntensity: 0.05,
-    });
-    const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.8, 0.5, 16), pedestalMat);
-    pedestal.position.y = 0.25;
-    zoneGroup.add(pedestal);
+    // Boundary line on ground
+    const boundaryLine = new THREE.Mesh(
+        new THREE.BoxGeometry(5, 0.02, 0.08),
+        new THREE.MeshBasicMaterial({ color: barrierColor, transparent: true, opacity: 0.6 })
+    );
+    boundaryLine.position.set(0, 0.01, -1.0);
+    zoneGroup.add(boundaryLine);
 
-    // Human figure at center - the decision maker
-    const figureMat = new THREE.MeshStandardMaterial({
-        color: 0xf5f0e8,
-        emissive: 0xf5f0e8,
-        emissiveIntensity: 0.2,
-    });
+    // === THE HUMAN FIGURE - Simple, warm, dignified ===
+    // Human is the gatekeeper - positioned on the human side
+    const humanGroup = new THREE.Group();
+    humanGroup.position.set(0, 0, 0.8);
 
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.35, 16, 16), figureMat);
-    head.position.set(0, 2.6, 0);
-    zoneGroup.add(head);
+    // Body - simple flowing robe shape
+    const robe = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.2, 0.5, 1.6, 32),
+        createHumanMaterial(0.55)
+    );
+    robe.position.set(0, 1.0, 0);
+    humanGroup.add(robe);
+
+    // Torso
+    const torso = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.28, 0.22, 0.8, 32),
+        createHumanMaterial(0.55)
+    );
+    torso.position.set(0, 2.2, 0);
+    humanGroup.add(torso);
+    zoneGroup.userData.torso = torso;
+
+    // Head - smooth sphere
+    const head = new THREE.Mesh(
+        new THREE.SphereGeometry(0.25, 32, 32),
+        createHumanMaterial(0.6)
+    );
+    head.position.set(0, 3.0, 0);
+    head.scale.set(1, 1.1, 1);
+    humanGroup.add(head);
     zoneGroup.userData.head = head;
 
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.4, 1.2, 8), figureMat);
-    body.position.set(0, 1.65, 0);
-    zoneGroup.add(body);
+    // Warm inner glow (heart/soul)
+    const innerGlow = new THREE.Mesh(
+        new THREE.SphereGeometry(0.3, 32, 32),
+        new THREE.MeshBasicMaterial({ color: humanGlow, transparent: true, opacity: 0.3 })
+    );
+    innerGlow.position.set(0, 2.2, 0);
+    humanGroup.add(innerGlow);
+    zoneGroup.userData.innerGlow = innerGlow;
 
-    // Arms extended outward - showing human agency
-    const armGeo = new THREE.CylinderGeometry(0.08, 0.08, 0.8, 8);
-    const leftArm = new THREE.Mesh(armGeo, figureMat);
-    leftArm.position.set(-0.5, 2.0, 0);
-    leftArm.rotation.z = Math.PI / 3;
-    zoneGroup.add(leftArm);
-    zoneGroup.userData.leftArm = leftArm;
+    zoneGroup.add(humanGroup);
+    zoneGroup.userData.humanGroup = humanGroup;
 
-    const rightArm = new THREE.Mesh(armGeo, figureMat);
-    rightArm.position.set(0.5, 2.0, 0);
-    rightArm.rotation.z = -Math.PI / 3;
-    zoneGroup.add(rightArm);
-    zoneGroup.userData.rightArm = rightArm;
-
-    zoneGroup.userData.boundaryRadius = boundaryRadius;
-
-    // AI particles - orbit OUTSIDE the boundary, never entering
+    // === AI PARTICLES - On the AI side (behind barrier) ===
     for (let i = 0; i < 12; i++) {
-        const geo = new THREE.SphereGeometry(0.08, 8, 8);
-        const mat = new THREE.MeshBasicMaterial({
-            color: zone.color,
-            transparent: true,
-            opacity: 0.7,
-        });
-        const p = new THREE.Mesh(geo, mat);
+        const p = new THREE.Mesh(
+            new THREE.SphereGeometry(0.08, 16, 16),
+            new THREE.MeshBasicMaterial({
+                color: barrierColor,
+                transparent: true,
+                opacity: 0.6,
+            })
+        );
         p.userData = {
             type: 'ai',
-            angle: (i / 12) * Math.PI * 2,
-            orbitRadius: boundaryRadius + 0.8 + Math.random() * 0.6,
-            orbitSpeed: 0.15 + Math.random() * 0.1,
-            y: 1.0 + Math.random() * 2.0,
-            bobSpeed: 1 + Math.random(),
-            bobAmount: 0.1 + Math.random() * 0.1,
+            baseX: (Math.random() - 0.5) * 3,
+            baseY: 1 + Math.random() * 2.5,
+            baseZ: -2.5 - Math.random() * 1,
+            phase: Math.random() * Math.PI * 2,
         };
         zoneGroup.add(p);
         particles.push(p);
     }
 
-    // Human decision particles - emanate FROM the human outward
-    for (let i = 0; i < 6; i++) {
-        const geo = new THREE.SphereGeometry(0.06, 8, 8);
-        const mat = new THREE.MeshBasicMaterial({
-            color: 0xf5f0e8, // Human color, not AI color
-            transparent: true,
-            opacity: 0.8,
-        });
-        const p = new THREE.Mesh(geo, mat);
+    // === DECISION PARTICLES - Warm glow from human going outward ===
+    for (let i = 0; i < 5; i++) {
+        const p = new THREE.Mesh(
+            new THREE.SphereGeometry(0.04, 16, 16),
+            new THREE.MeshBasicMaterial({
+                color: humanGlow,
+                transparent: true,
+                opacity: 0.7,
+            })
+        );
         p.userData = {
             type: 'human',
-            angle: Math.random() * Math.PI * 2,
-            progress: Math.random(), // 0 = at center, 1 = at boundary
-            speed: 0.008 + Math.random() * 0.004,
-            y: 1.5 + Math.random() * 1.0,
+            progress: Math.random(),
+            speed: 0.004 + Math.random() * 0.002,
+            spreadX: (Math.random() - 0.5) * 0.3,
+            y: 2 + Math.random() * 0.6,
         };
         zoneGroup.add(p);
         particles.push(p);
@@ -639,59 +1039,43 @@ function createHumanOnlyScene(zone) {
 function animateHumanOnly() {
     if (!zoneGroup || !zoneGroup.userData) return;
 
-    const boundaryRadius = zoneGroup.userData.boundaryRadius || 2.2;
-
-    // Human head looks around thoughtfully
-    if (zoneGroup.userData.head) {
-        zoneGroup.userData.head.rotation.y = Math.sin(time * 0.4) * 0.3;
+    // Inner glow - gentle breathing pulse
+    if (zoneGroup.userData.innerGlow) {
+        const breathe = 0.25 + Math.sin(time * 0.8) * 0.1;
+        zoneGroup.userData.innerGlow.material.opacity = breathe;
+        const scale = 1 + Math.sin(time * 0.8) * 0.05;
+        zoneGroup.userData.innerGlow.scale.setScalar(scale);
     }
 
-    // Arms pulse gently - showing active decision-making
-    if (zoneGroup.userData.leftArm) {
-        const pulse = Math.sin(time * 2) * 0.1;
-        zoneGroup.userData.leftArm.rotation.z = Math.PI / 3 + pulse;
-    }
-    if (zoneGroup.userData.rightArm) {
-        const pulse = Math.sin(time * 2 + Math.PI) * 0.1;
-        zoneGroup.userData.rightArm.rotation.z = -Math.PI / 3 + pulse;
+    // Torso breathing
+    if (zoneGroup.userData.torso) {
+        const breatheIntensity = 0.35 + Math.sin(time * 0.7) * 0.08;
+        zoneGroup.userData.torso.material.emissiveIntensity = breatheIntensity;
     }
 
+    // Particles
     particles.forEach(p => {
         if (!p.userData) return;
 
         if (p.userData.type === 'ai') {
-            // AI particles orbit OUTSIDE the boundary - never entering
-            p.userData.angle += p.userData.orbitSpeed * 0.01;
-
-            // They may approach the boundary but always stay outside
-            const approachPulse = Math.sin(time * 0.5 + p.userData.angle) * 0.2;
-            const currentRadius = p.userData.orbitRadius - approachPulse;
-
-            // Ensure they NEVER cross the boundary
-            const safeRadius = Math.max(currentRadius, boundaryRadius + 0.3);
-
-            p.position.x = Math.cos(p.userData.angle) * safeRadius;
-            p.position.z = Math.sin(p.userData.angle) * safeRadius;
-            p.position.y = p.userData.y + Math.sin(time * p.userData.bobSpeed) * p.userData.bobAmount;
+            // AI particles drift behind barrier
+            const drift = Math.sin(time * 0.5 + p.userData.phase);
+            p.position.x = p.userData.baseX + drift * 0.2;
+            p.position.y = p.userData.baseY + Math.sin(time * 0.4 + p.userData.phase) * 0.15;
+            p.position.z = p.userData.baseZ;
 
         } else if (p.userData.type === 'human') {
-            // Human decision particles emanate FROM center outward
+            // Human decision particles flow forward (from human outward)
             p.userData.progress += p.userData.speed;
-
             if (p.userData.progress > 1) {
-                // Reset to center and choose new direction
                 p.userData.progress = 0;
-                p.userData.angle = Math.random() * Math.PI * 2;
+                p.userData.spreadX = (Math.random() - 0.5) * 0.3;
             }
 
-            // Expand outward from human
-            const radius = p.userData.progress * boundaryRadius * 1.5;
-            p.position.x = Math.cos(p.userData.angle) * radius;
-            p.position.z = Math.sin(p.userData.angle) * radius;
-            p.position.y = p.userData.y;
-
-            // Fade out as they travel outward
-            p.material.opacity = 0.8 * (1 - p.userData.progress * 0.7);
+            p.position.x = p.userData.spreadX * p.userData.progress * 2;
+            p.position.y = p.userData.y + Math.sin(p.userData.progress * Math.PI) * 0.2;
+            p.position.z = 1 + p.userData.progress * 3.5;
+            p.material.opacity = 0.7 * (1 - p.userData.progress * 0.6);
         }
     });
 }
@@ -706,6 +1090,9 @@ function switchZone(zoneId) {
     const prevZoneIndex = ZONE_ORDER.indexOf(currentZone);
     const nextZoneIndex = ZONE_ORDER.indexOf(zoneId);
     const direction = nextZoneIndex > prevZoneIndex ? 1 : -1;
+
+    // Clean up seamless labels when leaving that zone
+    document.querySelectorAll('.seamless-label').forEach(el => el.remove());
 
     currentZone = zoneId;
     const zone = ZONES[zoneId];
@@ -879,6 +1266,11 @@ function animate() {
     time = performance.now() * 0.001;
     controls.update();
 
+    // Slow rotation of the entire zone group (viewed from angle)
+    if (zoneGroup && !isTransitioning) {
+        zoneGroup.rotation.y = Math.sin(time * 0.15) * 0.25;
+    }
+
     // Animate current zone
     switch (currentZone) {
         case 'seamless': animateSeamless(); break;
@@ -895,11 +1287,12 @@ function animate() {
 // ============================================================
 function playIntro() {
     // Start camera further back
-    camera.position.set(0, 7, 18);
+    camera.position.set(0, 5, 18);
 
-    // Smooth camera approach
+    // Smooth camera approach to front view
     gsap.to(camera.position, {
-        y: 5,
+        x: 0,
+        y: 3,
         z: 12,
         duration: 2.5,
         ease: 'power2.out'
