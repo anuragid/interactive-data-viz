@@ -57,7 +57,7 @@
       --color-accent-amber: #f59e0b;
 
       /* Part-specific glow colors */
-      --glow-friction: rgba(251, 191, 36, 0.4);
+      --glow-friction: rgba(244, 114, 182, 0.4);
       --glow-abstraction: rgba(99, 102, 241, 0.4);
       --glow-streetlight: rgba(245, 158, 11, 0.5);
       --glow-seams: rgba(52, 211, 153, 0.4);
@@ -498,6 +498,9 @@
       /* Initial state for GSAP - will be animated in */
       opacity: 0;
       transform-style: preserve-3d;
+      /* Flex layout so body fills remaining space */
+      display: flex;
+      flex-direction: column;
     }
 
     .part:hover {
@@ -507,6 +510,29 @@
       box-shadow:
         0 30px 60px -20px var(--chapter-glow),
         0 0 0 1px rgba(255, 255, 255, 0.05);
+    }
+
+    /* Theme-specific glow effect on body area */
+    .part__body {
+      position: relative;
+      flex-grow: 1;
+    }
+
+    .part__body::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -20px;
+      right: -20px;
+      bottom: 0;
+      background: radial-gradient(ellipse 200% 120% at 50% 100%, var(--chapter-glow), transparent 60%);
+      opacity: 0.2;
+      transition: opacity 0.5s ease;
+      pointer-events: none;
+    }
+
+    .part:hover .part__body::before {
+      opacity: 0.25;
     }
 
     /* Part preview area */
@@ -530,13 +556,13 @@
 
     /* Theme-specific preview backgrounds with animations */
 
-    /* FRICTION: Warm amber orbs that breathe and drift */
+    /* FRICTION: Warm rose orbs that breathe and drift */
     .part--friction .part__preview-bg {
       background:
-        radial-gradient(circle at var(--blob1-x, 30%) var(--blob1-y, 70%), rgba(251, 191, 36, 0.4) 0%, transparent 45%),
-        radial-gradient(circle at var(--blob2-x, 70%) var(--blob2-y, 30%), rgba(245, 158, 11, 0.3) 0%, transparent 40%),
-        radial-gradient(circle at var(--blob3-x, 50%) var(--blob3-y, 50%), rgba(217, 119, 6, 0.2) 0%, transparent 50%),
-        linear-gradient(135deg, var(--color-deep) 0%, #1a1510 100%);
+        radial-gradient(circle at var(--blob1-x, 30%) var(--blob1-y, 70%), rgba(244, 114, 182, 0.4) 0%, transparent 45%),
+        radial-gradient(circle at var(--blob2-x, 70%) var(--blob2-y, 30%), rgba(236, 72, 153, 0.3) 0%, transparent 40%),
+        radial-gradient(circle at var(--blob3-x, 50%) var(--blob3-y, 50%), rgba(190, 24, 93, 0.2) 0%, transparent 50%),
+        linear-gradient(135deg, var(--color-deep) 0%, #1a1015 100%);
       animation: friction-flow 12s ease-in-out infinite;
     }
 
@@ -795,13 +821,11 @@
       height: 16px;
     }
 
-    /* Featured part (Part 3) */
+    /* Featured part (Part 3) - layout only, styling consistent with other cards */
     .part--featured {
       grid-column: 1 / -1;
       display: grid;
       grid-template-columns: 1fr 1fr;
-      background: linear-gradient(135deg, var(--color-surface) 0%, rgba(251, 191, 36, 0.03) 100%);
-      border-color: rgba(251, 191, 36, 0.12);
       --chapter-glow: var(--glow-streetlight);
     }
 
@@ -817,35 +841,12 @@
       padding: var(--space-2xl);
     }
 
-    .part--featured .part__number {
-      color: var(--color-accent-warm);
-    }
-
     .part--featured .part__title {
       font-size: 1.6rem;
     }
 
     .part--featured .part__description {
-      color: var(--color-text-secondary);
       font-size: 0.95rem;
-    }
-
-    .part--featured:hover {
-      border-color: rgba(251, 191, 36, 0.25);
-      box-shadow:
-        0 40px 80px -25px var(--glow-streetlight),
-        0 0 0 1px rgba(251, 191, 36, 0.1);
-    }
-
-    .part--featured .part__action {
-      background: rgba(251, 191, 36, 0.1);
-      border-color: rgba(251, 191, 36, 0.2);
-      color: var(--color-accent-warm);
-    }
-
-    .part--featured .part__action:hover {
-      background: rgba(251, 191, 36, 0.15);
-      border-color: rgba(251, 191, 36, 0.3);
     }
 
     /* Set glow colors for each part */
@@ -854,29 +855,35 @@
     .part--seams { --chapter-glow: var(--glow-seams); }
     .part--pace { --chapter-glow: var(--glow-pace); }
 
-    /* Arrow button hover colors per part type */
-    .part--friction .part__action:hover:not(.part__action--disabled) {
-      background: rgba(251, 191, 36, 0.15) !important;
-      border-color: rgba(251, 191, 36, 0.3) !important;
-      color: rgb(251, 191, 36) !important;
+    /* Arrow button highlight on card hover (theme colors) */
+    .part--friction:hover .part__action:not(.part__action--disabled) {
+      background: rgba(244, 114, 182, 0.15);
+      border-color: rgba(244, 114, 182, 0.3);
+      color: rgb(244, 114, 182);
     }
 
-    .part--abstraction .part__action:hover:not(.part__action--disabled) {
-      background: rgba(99, 102, 241, 0.15) !important;
-      border-color: rgba(99, 102, 241, 0.3) !important;
-      color: rgb(99, 102, 241) !important;
+    .part--abstraction:hover .part__action:not(.part__action--disabled) {
+      background: rgba(99, 102, 241, 0.15);
+      border-color: rgba(99, 102, 241, 0.3);
+      color: rgb(99, 102, 241);
     }
 
-    .part--seams .part__action:hover:not(.part__action--disabled) {
-      background: rgba(52, 211, 153, 0.15) !important;
-      border-color: rgba(52, 211, 153, 0.3) !important;
-      color: rgb(52, 211, 153) !important;
+    .part--seams:hover .part__action:not(.part__action--disabled) {
+      background: rgba(52, 211, 153, 0.15);
+      border-color: rgba(52, 211, 153, 0.3);
+      color: rgb(52, 211, 153);
     }
 
-    .part--pace .part__action:hover:not(.part__action--disabled) {
-      background: rgba(139, 92, 246, 0.15) !important;
-      border-color: rgba(139, 92, 246, 0.3) !important;
-      color: rgb(139, 92, 246) !important;
+    .part--pace:hover .part__action:not(.part__action--disabled) {
+      background: rgba(139, 92, 246, 0.15);
+      border-color: rgba(139, 92, 246, 0.3);
+      color: rgb(139, 92, 246);
+    }
+
+    .part--featured:hover .part__action:not(.part__action--disabled) {
+      background: rgba(245, 158, 11, 0.15);
+      border-color: rgba(245, 158, 11, 0.3);
+      color: rgb(245, 158, 11);
     }
 
     /* ============================================================
@@ -920,6 +927,7 @@
     }
 
     .voice {
+      position: relative;
       padding: var(--space-xl);
       background: var(--color-surface);
       border: 1px solid rgba(244, 243, 241, 0.04);
@@ -933,11 +941,26 @@
       opacity: 0;
       transform-style: preserve-3d;
       cursor: pointer;
+      overflow: hidden;
+    }
+
+    .voice::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse 120% 80% at 50% 100%, var(--glow-friction), transparent 60%);
+      opacity: 0.15;
+      transition: opacity 0.5s ease;
+      pointer-events: none;
     }
 
     .voice:hover {
       border-color: rgba(244, 243, 241, 0.08);
       /* Transform handled by GSAP */
+    }
+
+    .voice:hover::before {
+      opacity: 0.25;
     }
 
     .voice__text {
@@ -1219,9 +1242,6 @@
               People reach for whatever removes the obstacle in front of them. This creates genuine value, and a default path that leads somewhere whether we are paying attention or not.
             </p>
             <div class="part__meta">
-              <div class="part__tags">
-                <span class="part__tag part__tag--ready">Visualization Ready</span>
-              </div>
               <a href="visualizations/collaboration-framework/" class="part__action" aria-label="Explore Part 1">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
@@ -1243,9 +1263,6 @@
               84% of AI projects fail because organizations optimize at the wrong level. The Four Rungs framework shows why most teams start at Method when they should start at Outcome.
             </p>
             <div class="part__meta">
-              <div class="part__tags">
-                <span class="part__tag part__tag--ready">Visualization Ready</span>
-              </div>
               <a href="visualizations/four-rungs/" class="part__action" aria-label="Explore Part 2">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
@@ -1267,9 +1284,6 @@
               Stop asking what AI cannot do. Start asking what AI cannot see. The Streetlight Effect reveals the structural limits that determine where human judgment remains essential: not as a placeholder until AI improves, but as the only access point to information the system was never designed to perceive.
             </p>
             <div class="part__meta">
-              <div class="part__tags">
-                <span class="part__tag part__tag--ready">Visualization Ready</span>
-              </div>
               <a href="visualizations/complementarity-view/" class="part__action" aria-label="Explore Part 3">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
@@ -1291,9 +1305,6 @@
               The solution is not friction everywhere. It is calibrated friction: seams matched to stakes. Mark Weiser's "beautiful seams" show how to reveal the junction between human and machine precisely where evaluation matters.
             </p>
             <div class="part__meta">
-              <div class="part__tags">
-                <span class="part__tag part__tag--ready">Visualization Ready</span>
-              </div>
               <a href="visualizations/friction-spectrum/" class="part__action" aria-label="Explore Part 4">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
@@ -2242,10 +2253,10 @@
               const blob3x = 50 + 20 * Math.sin(t * 0.0004);
               const blob3y = 50 + 20 * Math.cos(t * 0.0005);
               el.style.background = `
-                radial-gradient(circle at ${blob1x}% ${blob1y}%, rgba(251, 191, 36, 0.4) 0%, transparent 45%),
-                radial-gradient(circle at ${blob2x}% ${blob2y}%, rgba(245, 158, 11, 0.3) 0%, transparent 40%),
-                radial-gradient(circle at ${blob3x}% ${blob3y}%, rgba(217, 119, 6, 0.2) 0%, transparent 50%),
-                linear-gradient(135deg, #0a0a0f 0%, #1a1510 100%)
+                radial-gradient(circle at ${blob1x}% ${blob1y}%, rgba(244, 114, 182, 0.4) 0%, transparent 45%),
+                radial-gradient(circle at ${blob2x}% ${blob2y}%, rgba(236, 72, 153, 0.3) 0%, transparent 40%),
+                radial-gradient(circle at ${blob3x}% ${blob3y}%, rgba(190, 24, 93, 0.2) 0%, transparent 50%),
+                linear-gradient(135deg, #0a0a0f 0%, #1a1015 100%)
               `;
             }
           },
